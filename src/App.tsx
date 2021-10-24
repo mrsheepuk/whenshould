@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import logo from './logo.svg';
 import './App.css';
 import { Forecast } from './api/forecast-types';
@@ -18,11 +18,12 @@ function App() {
   const loadData = async () => {
     if (!postcode) return
     setLoading(true)
-    try {
-      const f = await new Forecaster().getForecast(postcode)
-      setForecast(f)
-    } catch (err) {
-      // setErr(err)
+    setErr(undefined)
+    const f = await new Forecaster().getForecast(postcode)
+    if (f.ok) {
+      setForecast(f.forecast)
+    } else {
+      setErr(f.err)
     }
     setLoading(false)
   }
@@ -34,6 +35,9 @@ function App() {
         <p>
           <input type="text" readOnly={loading} value={postcode} onChange={(e) => setPostcode(e.target.value)} /> <button disabled={loading} onClick={() => loadData()}>Load</button>
         </p>
+        {err ? (
+          <p>{err}</p>
+        ) : null}
         {forecast ? (
           <>
           Forecast:
