@@ -15,11 +15,11 @@ function App() {
   //   })()
   // }, [postcode])
 
-  const loadData = async () => {
+  const loadData = async (past?: boolean) => {
     if (!postcode) return
     setLoading(true)
     setErr(undefined)
-    const f = await new Forecaster().getForecast(postcode)
+    const f = await new Forecaster().getForecast(postcode, past)
     if (f.ok) {
       setForecast(f.forecast)
     } else {
@@ -33,7 +33,9 @@ function App() {
       <header className="App-header">
         <img src={logo} className="App-logo" alt="logo" />
         <p>
-          <input type="text" readOnly={loading} value={postcode} onChange={(e) => setPostcode(e.target.value)} /> <button disabled={loading} onClick={() => loadData()}>Load</button>
+          <input type="text" readOnly={loading} value={postcode} onChange={(e) => setPostcode(e.target.value)} /> 
+          <button disabled={loading} onClick={() => loadData()}>Forecast (next 48 hours)</button>
+          <button disabled={loading} onClick={() => loadData(true)}>Past (last 24 hours)</button>
         </p>
         {err ? (
           <p>{err}</p>
@@ -42,8 +44,8 @@ function App() {
           <>
           Forecast:
             <ul>
-            {forecast.data.map((f) => (
-              <li>
+            {forecast.data.map((f, i) => (
+              <li key={i}>
                 {format(parseISO(f.from), 'EEEE HH:mm')} to {format(parseISO(f.to), 'EEEE HH:mm')}: {f.intensity.forecast} ({f.intensity.index})
               </li>
             ))}
