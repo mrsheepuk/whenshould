@@ -1,5 +1,6 @@
 import { parseISO, differenceInMinutes } from "date-fns";
-import { Forecast, IdealTime as PossibleTime, TimeForecast } from "./forecast-types";
+
+import { Forecast, ForecastIndex, PossibleTime, TimeForecast } from "./forecast-types";
 import { RunWhatRequest } from "./request-types";
 
 const NO_FORECAST = 999999
@@ -27,7 +28,14 @@ export function findBestWindow(req: RunWhatRequest, forecast: Forecast): { best:
         // Simple mode: just find the best time if we have no required
         // duration
         possible.forEach((tf) => {
-            const fc: PossibleTime = { forecast: tf.intensity.forecast, from:  parseISO(tf.from), to: parseISO(tf.to) }
+            const fc: PossibleTime = { 
+                forecast: tf.intensity.forecast, 
+                index: tf.intensity.index,
+                instForecast: tf.intensity.forecast, 
+                instIndex: tf.intensity.index,
+                from:  parseISO(tf.from), 
+                to: parseISO(tf.to),
+            }
             all.push(fc)
             if (fc.forecast < best.forecast) {
                 best = fc
@@ -41,7 +49,15 @@ export function findBestWindow(req: RunWhatRequest, forecast: Forecast): { best:
             const calc = calcCurrentWindow(possible, ind, duration)
             const from = parseISO(tf.from)
             if (!calc) return
-            const fc: PossibleTime = { forecast: calc.forecast, from: from, to: calc.endTime }
+            const fc: PossibleTime = { 
+                forecast: calc.forecast, 
+                from: from, 
+                to: calc.endTime,
+                index: getIndex(calc.forecast),
+                instForecast: tf.intensity.forecast,
+                instIndex: tf.intensity.index,
+                instTo: parseISO(tf.to)
+            }
             if (req.what?.duration && req.what?.power) {
                 fc.totalCarbon = fc.forecast * (((req.what.power) / 1000) * (req.what.duration / 60))
             }
@@ -81,4 +97,46 @@ function calcCurrentWindow(possible: TimeForecast[], startIndex: number, reqDura
     }
     // If we ran out of time, this isn't valid.
     return null
+}
+
+const indexes: Record<string,Record<ForecastIndex,number>> = {    
+    '2021': {
+        [ForecastIndex.verylow]: 0,
+        [ForecastIndex.low]: 50,
+        [ForecastIndex.moderate]: 140, 
+        [ForecastIndex.high]: 220, 
+        [ForecastIndex.veryhigh]: 330
+    },
+    '2022': {
+        [ForecastIndex.verylow]: 0,
+        [ForecastIndex.low]: 45,
+        [ForecastIndex.moderate]: 130, 
+        [ForecastIndex.high]: 210, 
+        [ForecastIndex.veryhigh]: 310
+    },
+    '2023': {
+        [ForecastIndex.verylow]: 0,
+        [ForecastIndex.low]: 40,
+        [ForecastIndex.moderate]: 120, 
+        [ForecastIndex.high]: 200, 
+        [ForecastIndex.veryhigh]: 290
+    },
+    '2024': {
+        [ForecastIndex.verylow]: 0,
+        [ForecastIndex.low]: 35,
+        [ForecastIndex.moderate]: 110, 
+        [ForecastIndex.high]: 190, 
+        [ForecastIndex.veryhigh]: 270
+    }
+}
+
+export function getIndex(forecast: number): ForecastIndex {
+    // This implements the logic from the national grid methodology document
+    // Use 2024 if the year isn't in the lookup table. Update this as years get added above.
+    const yearIndexes = indexes[new Date().getFullYear().toString()] || indexes['2024']
+    if (forecast < yearIndexes[ForecastIndex.low]) return ForecastIndex.verylow
+    if (forecast < yearIndexes[ForecastIndex.moderate]) return ForecastIndex.low
+    if (forecast < yearIndexes[ForecastIndex.high]) return ForecastIndex.moderate
+    if (forecast < yearIndexes[ForecastIndex.veryhigh]) return ForecastIndex.high
+    return ForecastIndex.veryhigh
 }

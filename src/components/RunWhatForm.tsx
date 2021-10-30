@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Autocomplete, Button, FormControl, StepLabel, TextField } from '@mui/material';
+import { Autocomplete, Button, FormControl, TextField } from '@mui/material';
 import { Box } from '@mui/system';
 
 import { ElectricityUser, ElectricityUsers } from '../data/things';
@@ -70,6 +70,7 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                     disabled={disabled}
                     value={where || ''}
                     onChange={(e) => checkSetWhere(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && doSubmit()}
                     InputProps={{
                         placeholder: 'Postcode (e.g. SW19)'
                     }}
@@ -81,10 +82,8 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                     required={true}
                 />
             </FormControl>
-            <FormControl>
-                <StepLabel>Go</StepLabel>
-                <Button variant='contained' disabled={disabled || !whereValid(where)} onClick={() => doSubmit()}>Go</Button>
-            </FormControl> 
+
+            <Button variant='contained' disabled={disabled || !whereValid(where)} onClick={() => doSubmit()}>Go</Button>
         </Box>
     )
 }
