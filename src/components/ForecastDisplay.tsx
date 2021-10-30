@@ -1,16 +1,38 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { format } from 'date-fns';
 
-import { Forecast } from '../api/forecast-types';
-import { LinearProgress, Typography } from '@mui/material';
+import { Forecast, ForecastIndex, PossibleTime } from '../api/forecast-types';
+import { Checkbox, FormControlLabel, LinearProgress, Typography } from '@mui/material';
 import { RunWhatRequest } from '../api/request-types';
 import { findBestWindow } from '../api/forecast-analyser';
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+
+const getIntensityFill = (entry: PossibleTime, intensityKey: keyof PossibleTime) => {
+    switch (entry[intensityKey]) {
+        case ForecastIndex.verylow:
+            return '#89C35C'
+        case ForecastIndex.low:
+            return '#3EA055'
+        case ForecastIndex.moderate:
+            return '#E8A317'
+        case ForecastIndex.high:
+            return '#E42217'
+        case ForecastIndex.veryhigh:
+            return '#800000'
+    }
+    // ???
+    console.log(entry)
+    return 'blue'
+}
+
 
 export function ForecastDisplay({ req, forecast, loading } : { 
     req?: RunWhatRequest, 
     forecast?: Forecast, 
     loading: boolean,
 }) {
+    const [showTotalCarbon, setShowTotalCarbon] = useState<boolean>(false)
+
     if (loading) {
         return (
             <>
@@ -20,38 +42,65 @@ export function ForecastDisplay({ req, forecast, loading } : {
         )
 
     }
+
     if (!forecast || !req) return null
 
     const { best, all } = findBestWindow(req, forecast)
+    const advanced = req.what?.duration && req.what?.power
+    const graphDataKey = advanced && showTotalCarbon ? 'totalCarbon' : 'instForecast'
+    const intensityKey = advanced && showTotalCarbon ? 'index' : 'instIndex'
 
     return (
         <>
             {best ? (
-                <Typography variant='body1'>
-                    Best time: {best.forecast.toFixed(1)}g/kWh from <b>{format(best.from, 'EEEE HH:mm')} to {format(best.to, 'HH:mm')}</b>
-                    {best.totalCarbon ? <><br/>Total carbon impact: <b>{best.totalCarbon.toFixed(0)}g</b></> : null}
-                </Typography>
+                <>
+                    <Typography variant='h5' component='p' paragraph={true}>
+                        The time with the lowest carbon {advanced ? `impact to start your ${req.what?.label}` : 'intensity'} is {advanced ? 'from' : 'at'} <b>{format(best.from, 'EEEE HH:mm')}</b> {advanced ? <>(running until {format(best.to, 'HH:mm')})</> : null}
+                    </Typography>
+                    <Typography variant='subtitle1' component='p' paragraph={true}>
+                        Estimated carbon intensity: {best.forecast.toFixed(1)}g CO2e/kWh
+                        {best.totalCarbon ? <> | Total estimated emissions: <b>{best.totalCarbon.toFixed(0)}g CO2e</b></> : null}
+                    </Typography>
+                </>
             ) : (
                 <Typography variant='body1'>
                     Could not identify best period to use
                 </Typography>
             )}
-            <p>Other options:</p>
-            <ul>
-                {all.map((f,i) => (
-                    <li key={i}>
-                        {format(f.from, 'EEEE HH:mm')} (to {format(f.to, 'HH:mm')}): average: {f.forecast.toFixed(1)}g/kWh {f.totalCarbon ? ` total: ${f.totalCarbon.toFixed(0)}g` : null}
-                    </li>
-                ))}
-            </ul>
-            {/* Forecast:
-            <ul>
-                {forecast.data.map((f) => (
-                    <li key={f.from}>
-                        {format(parseISO(f.from), 'EEEE HH:mm')} to {format(parseISO(f.to), 'EEEE HH:mm')}: {f.intensity.forecast} ({f.intensity.index})
-                    </li>
-                ))}
-            </ul> */}
+            <ResponsiveContainer width="100%" height={400}>
+                <BarChart data={all} barGap={0} barCategoryGap={0}>
+                    <Bar type="monotone" dataKey={graphDataKey} strokeWidth={0}>
+                        {all.map((entry) => (
+                            <Cell fill={getIntensityFill(entry, intensityKey)} />
+                        ))}
+                    </Bar>
+                    <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
+                    <XAxis dataKey="from" tickFormatter={(t) => format(t, 'EEE HH:mm')} minTickGap={25} interval={'preserveStartEnd'} />
+                    <YAxis unit='g' />
+                    <Tooltip
+                        labelFormatter={(t) => format(t, 'EEEE HH:mm')}
+                        formatter={(forecast: number) => 
+                            [<>
+                                {forecast.toFixed(1)}g CO2{showTotalCarbon ?
+                                    ` would be emitted if you run your ${req.what?.label} for ${req.what?.duration} minutes starting at this time` :
+                                    'e/kWh average at this time' 
+                                }
+                            </>]} 
+                    />
+                </BarChart>
+            </ResponsiveContainer>
+            {advanced ? (
+                <>
+                    {showTotalCarbon ? 
+                        <Typography>Total estimated grams CO2 emitted if you start your {req.what?.label} for {req.what?.duration} minutes at the time shown</Typography> : 
+                        <Typography>Estimated g CO2e/kWh for each 30 minute period</Typography>
+                    }
+                    <FormControlLabel 
+                        control={<Checkbox value={showTotalCarbon} onChange={(e) => setShowTotalCarbon(e.target.checked)} />} 
+                        label={<>Graph total estimated grams CO2 emitted for running your {req.what?.label}</>}
+                    />
+                </>
+            ) : null}
         </>
     )
 }

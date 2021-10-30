@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
+import { Container, Grid } from '@mui/material'
 
-import logo from './logo.svg';
 import './App.css';
 import { Forecast } from './api/forecast-types';
 import { Forecaster } from './api/forecaster';
 import { RunWhatForm } from './components/RunWhatForm';
 import { ForecastDisplay } from './components/ForecastDisplay';
 import { RunWhatRequest } from './api/request-types';
+import { Alert, AlertTitle, Typography } from '@mui/material';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(false)
@@ -28,22 +29,30 @@ function App() {
     }
     setLoading(false)
   }
-  
 
   return (
     <React.Fragment>
       <CssBaseline />
       <div className="App">
         <header className="App-header">
-          <img src={logo} className="App-logo" alt="Tell me when to run" />
-          {err ? (
-            <p>{err}</p>
-          ) : null}
+          <Typography variant='h4' component='h1'>Tell me when to run...</Typography>
         </header>
-        <div style={{ marginTop: '1em' }}>
-          <RunWhatForm onSubmit={(req) => load(req)} disabled={loading} />
-          <ForecastDisplay req={req} forecast={forecast} loading={loading} />
-        </div>
+        <Container sx={{ marginTop: '1em' }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <RunWhatForm onSubmit={(req) => load(req)} disabled={loading} />
+              {err ? (
+                <Alert severity="error">
+                  <AlertTitle>Error</AlertTitle>
+                  {err}
+                </Alert>
+              ) : null}
+            </Grid>
+            <Grid item xs={12}>
+              <ForecastDisplay req={req} forecast={forecast} loading={loading} />
+            </Grid>
+          </Grid>
+        </Container>
       </div>
     </React.Fragment>
   );

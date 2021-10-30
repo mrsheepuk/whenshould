@@ -7,11 +7,11 @@ export class Forecast {
 }
 
 export enum ForecastIndex {
-  verylow,
-  low,
-  moderate,
-  high,
-  veryhigh
+  verylow = 'very low',
+  low = 'low',
+  moderate = 'moderate',
+  high = 'high',
+  veryhigh = 'very high'
 }
 
 export class TimeForecast {
@@ -29,9 +29,13 @@ export class GenSource {
   perc: number
 }
 
-export class IdealTime {
+export class PossibleTime {
   from: Date
   to: Date
   forecast: number
+  index?: ForecastIndex
+  instTo?: Date
+  instForecast?: number
+  instIndex?: ForecastIndex
   totalCarbon?: number
 }

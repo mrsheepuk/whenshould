@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Autocomplete, Button, FormControl, StepLabel, TextField } from '@mui/material';
+import { Autocomplete, Button, Grid, TextField } from '@mui/material';
 import { Box } from '@mui/system';
 
 import { ElectricityUser, ElectricityUsers } from '../data/things';
@@ -43,48 +43,52 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
     }
 
     return (
-        <Box
-            component="form"
-            sx={{
-            '& .MuiTextField-root': { m: 1, width: '30ch' },
-            }}
-        >
-            <FormControl>
-                <Autocomplete<ElectricityUser,false,true>
-                    disabled={disabled}
-                    disablePortal
-                    disableClearable
-                    isOptionEqualToValue={(a, b) => a.id === b.id}
-                    multiple={false}
-                    options={ElectricityUsers}
-                    onChange={(_,w) => setWhat(w)}
-                    value={what} 
-                    sx={{ width: 300 }}
-                    renderInput={(params) => <TextField {...params} label='What do you want to run?' helperText={explainWhat()} />}
-                />
-            </FormControl>
-
-            <FormControl>
-                <TextField
-                    label='Where are you?'
-                    disabled={disabled}
-                    value={where || ''}
-                    onChange={(e) => checkSetWhere(e.target.value)}
-                    InputProps={{
-                        placeholder: 'Postcode (e.g. SW19)'
-                    }}
-                    inputProps={{
-                        pattern: '^[A-Z]{1,2}\\d[A-Z\\d]?$'
-                    }}
-                    error={whereErr != null}
-                    helperText={whereErr}
-                    required={true}
-                />
-            </FormControl>
-            <FormControl>
-                <StepLabel>Go</StepLabel>
-                <Button variant='contained' disabled={disabled || !whereValid(where)} onClick={() => doSubmit()}>Go</Button>
-            </FormControl> 
+        <Box component="form">
+            <Grid container spacing={2}>
+                <Grid item lg={2} xs={12} />
+                <Grid item lg={4} xs={12}>
+                    <Autocomplete<ElectricityUser,false,true>
+                        sx={{ width: '100%' }}
+                        disabled={disabled}
+                        disablePortal
+                        disableClearable
+                        isOptionEqualToValue={(a, b) => a.id === b.id}
+                        multiple={false}
+                        options={ElectricityUsers}
+                        onChange={(_,w) => setWhat(w)}
+                        value={what} 
+                        renderInput={(params) => <TextField {...params} label='What do you want to run?' helperText={explainWhat()} />}
+                    />
+                </Grid>
+                <Grid item lg={3} xs={12}>
+                    <TextField
+                        sx={{ width: '100%' }}
+                        label='Where are you?'
+                        disabled={disabled}
+                        value={where || ''}
+                        onChange={(e) => checkSetWhere(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && doSubmit()}
+                        InputProps={{
+                            placeholder: 'Postcode (e.g. SW19)'
+                        }}
+                        inputProps={{
+                            pattern: '^[A-Z]{1,2}\\d[A-Z\\d]?$'
+                        }}
+                        error={whereErr != null}
+                        helperText={whereErr}
+                        required={true}
+                    />
+                </Grid>
+                <Grid item lg={1} xs={12}>
+                    <Button 
+                        sx={{ marginTop: '0.5em', width: '100%' }} 
+                        variant='contained' 
+                        disabled={disabled || !whereValid(where)} 
+                        onClick={() => doSubmit()}>
+                        Go
+                    </Button>
+                </Grid>
+            </Grid>
         </Box>
     )
 }
