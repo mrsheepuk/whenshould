@@ -35,7 +35,7 @@ function App() {
       <CssBaseline />
       <div className="App">
         <header className="App-header">
-          <Typography variant='h2' >Tell me when to run...</Typography>
+          <Typography variant='h4' component='h1'>Tell me when to run...</Typography>
         </header>
         <Container sx={{ marginTop: '1em' }}>
           <Grid container spacing={2}>

@@ -45,8 +45,8 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
     return (
         <Box component="form">
             <Grid container spacing={2}>
-                <Grid item lg={2} />
-                <Grid item lg={4}>
+                <Grid item lg={2} xs={12} />
+                <Grid item lg={4} xs={12}>
                     <Autocomplete<ElectricityUser,false,true>
                         sx={{ width: '100%' }}
                         disabled={disabled}
@@ -60,7 +60,7 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                         renderInput={(params) => <TextField {...params} label='What do you want to run?' helperText={explainWhat()} />}
                     />
                 </Grid>
-                <Grid item lg={3}>
+                <Grid item lg={3} xs={12}>
                     <TextField
                         sx={{ width: '100%' }}
                         label='Where are you?'
@@ -79,14 +79,14 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                         required={true}
                     />
                 </Grid>
-                <Grid item lg={1}>
-                <Button 
-                    sx={{ marginTop: '0.5em', width: '100%' }} 
-                    variant='contained' 
-                    disabled={disabled || !whereValid(where)} 
-                    onClick={() => doSubmit()}>
-                    Go
-                </Button>
+                <Grid item lg={1} xs={12}>
+                    <Button 
+                        sx={{ marginTop: '0.5em', width: '100%' }} 
+                        variant='contained' 
+                        disabled={disabled || !whereValid(where)} 
+                        onClick={() => doSubmit()}>
+                        Go
+                    </Button>
                 </Grid>
             </Grid>
         </Box>

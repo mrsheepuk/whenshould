@@ -10,9 +10,9 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 const getIntensityFill = (entry: PossibleTime, intensityKey: keyof PossibleTime) => {
     switch (entry[intensityKey]) {
         case ForecastIndex.verylow:
-            return 'limegreen'
+            return '#89C35C'
         case ForecastIndex.low:
-            return 'mediumseagreen'
+            return '#3EA055'
         case ForecastIndex.moderate:
             return '#E8A317'
         case ForecastIndex.high:
