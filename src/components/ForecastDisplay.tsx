@@ -7,18 +7,18 @@ import { RunWhatRequest } from '../api/request-types';
 import { findBestWindow } from '../api/forecast-analyser';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
-const getIntensityFill = (entry: PossibleTime) => {
-    switch (entry.index) {
+const getIntensityFill = (entry: PossibleTime, intensityKey: keyof PossibleTime) => {
+    switch (entry[intensityKey]) {
         case ForecastIndex.verylow:
-            return 'green'
+            return 'limegreen'
         case ForecastIndex.low:
-            return 'green'
+            return 'mediumseagreen'
         case ForecastIndex.moderate:
-            return 'yellow'
+            return '#E8A317'
         case ForecastIndex.high:
-            return 'orange'
+            return '#E42217'
         case ForecastIndex.veryhigh:
-            return 'red'
+            return '#800000'
     }
     // ???
     console.log(entry)
@@ -48,6 +48,7 @@ export function ForecastDisplay({ req, forecast, loading } : {
     const { best, all } = findBestWindow(req, forecast)
     const advanced = req.what?.duration && req.what?.power
     const graphDataKey = advanced && showTotalCarbon ? 'totalCarbon' : 'instForecast'
+    const intensityKey = advanced && showTotalCarbon ? 'index' : 'instIndex'
 
     return (
         <>
@@ -67,28 +68,22 @@ export function ForecastDisplay({ req, forecast, loading } : {
                 </Typography>
             )}
             <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={all}>
-                    <defs>
-                        <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="red" stopOpacity={1}/>
-                            <stop offset="95%" stopColor="forestgreen" stopOpacity={0.3}/>
-                        </linearGradient>
-                    </defs>
-                    <Bar type="monotone" dataKey={graphDataKey} stroke="#8884d8" fill="url(#colorUv)">
-                        {all.map((entry, index) => (
-                            <Cell fill={getIntensityFill(entry)} />
+                <BarChart data={all} barGap={0} barCategoryGap={0}>
+                    <Bar type="monotone" dataKey={graphDataKey} strokeWidth={0}>
+                        {all.map((entry) => (
+                            <Cell fill={getIntensityFill(entry, intensityKey)} />
                         ))}
                     </Bar>
                     <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
-                    <XAxis dataKey="from" tickFormatter={(t) => format(t, 'EEE HH:mm')} minTickGap={10} />
+                    <XAxis dataKey="from" tickFormatter={(t) => format(t, 'EEE HH:mm')} minTickGap={25} interval={'preserveStartEnd'} />
                     <YAxis unit='g' />
                     <Tooltip
                         labelFormatter={(t) => format(t, 'EEEE HH:mm')}
                         formatter={(forecast: number) => 
                             [<>
-                                {forecast.toFixed(1)}g CO2e {showTotalCarbon ?
-                                    `would be emitted if you run your ${req.what?.label} for ${req.what?.duration} minutes starting at this time` :
-                                    '/kWh average at this time' 
+                                {forecast.toFixed(1)}g CO2{showTotalCarbon ?
+                                    ` would be emitted if you run your ${req.what?.label} for ${req.what?.duration} minutes starting at this time` :
+                                    'e/kWh average at this time' 
                                 }
                             </>]} 
                     />
@@ -97,30 +92,15 @@ export function ForecastDisplay({ req, forecast, loading } : {
             {advanced ? (
                 <>
                     {showTotalCarbon ? 
-                        <Typography>Total grams CO2 emitted if you start your {req.what?.label} for {req.what?.duration} minutes at the time shown</Typography> : 
-                        <Typography>Estimated g CO2e/kWh for every 30 minutes</Typography>
+                        <Typography>Total estimated grams CO2 emitted if you start your {req.what?.label} for {req.what?.duration} minutes at the time shown</Typography> : 
+                        <Typography>Estimated g CO2e/kWh for each 30 minute period</Typography>
                     }
                     <FormControlLabel 
                         control={<Checkbox value={showTotalCarbon} onChange={(e) => setShowTotalCarbon(e.target.checked)} />} 
-                        label={<>Show total estimated grams CO2 emitted for running your {req.what?.label}</>}
+                        label={<>Graph total estimated grams CO2 emitted for running your {req.what?.label}</>}
                     />
                 </>
             ) : null}
-            {/* <ul>
-                {all.map((f,i) => (
-                    <li key={i}>
-                        {format(f.from, 'EEEE HH:mm')} (to {format(f.to, 'HH:mm')}): average: {f.forecast.toFixed(1)}g/kWh {f.totalCarbon ? ` total: ${f.totalCarbon.toFixed(0)}g` : null}
-                    </li>
-                ))}
-            </ul> */}
-            {/* Forecast:
-            <ul>
-                {forecast.data.map((f) => (
-                    <li key={f.from}>
-                        {format(parseISO(f.from), 'EEEE HH:mm')} to {format(parseISO(f.to), 'EEEE HH:mm')}: {f.intensity.forecast} ({f.intensity.index})
-                    </li>
-                ))}
-            </ul> */}
         </>
     )
 }
