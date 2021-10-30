@@ -28,3 +28,10 @@ export class GenSource {
   fuel: string
   perc: number
 }
+
+export class IdealTime {
+  from: Date
+  to: Date
+  forecast: number
+  totalCarbon?: number
+}
