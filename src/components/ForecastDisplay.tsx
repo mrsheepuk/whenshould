@@ -56,7 +56,7 @@ export function ForecastDisplay({ req, forecast, loading } : {
     }
 
     const percentBetter = () => {
-        return ((bestOverall?.forecast || 1) / (best?.forecast || 1)) * 100
+        return 100 - (((bestOverall?.forecast || 1) / (best?.forecast || 1)) * 100)
     }
 
     return (
