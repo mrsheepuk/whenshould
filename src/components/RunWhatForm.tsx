@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Autocomplete, Button, Grid, TextField } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Autocomplete, Button, Grid, InputAdornment, MenuItem, TextField } from '@mui/material';
 import { Box } from '@mui/system';
 
 import { ElectricityUser, ElectricityUsers } from '../data/things';
-import { RunWhatRequest } from '../api/request-types';
+import { getRunWhen, RunWhatRequest, RunWhenRange } from '../api/request-types';
 
 export function RunWhatForm({ onSubmit, disabled, presets } : { 
     onSubmit: (req: RunWhatRequest) => Promise<void>, 
@@ -11,8 +11,22 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
     presets?: RunWhatRequest
 }) {
     const [what, setWhat] = useState<ElectricityUser>(presets?.what || ElectricityUsers[0])
+    const [duration, setDuration] = useState<number>(presets?.duration || presets?.what?.duration || 60)
+    const [power, setPower] = useState<number|undefined>(presets?.power || presets?.what?.power || undefined)
     const [where, setWhere] = useState<string|null>(presets?.where || null)
+    const [when, setWhen] = useState<string>(presets?.when || RunWhenRange.Next24h)
     const [whereErr, setWhereErr] = useState<string|null>(null)
+
+    useEffect(() => {
+        if (what && what.duration) {
+            setDuration(what.duration)
+        }
+        if (what && what.power) {
+            setPower(what.power)
+        } else {
+            setPower(undefined)
+        }
+    }, [what])
 
     const whereValid = (w: string|null): boolean => {
         return (w?.match(/^[A-Z]{1,2}\d[A-Z\d]?$/i)) !== null       
@@ -34,21 +48,26 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
             return null
         }
         const kwh = (what.power / 1000) * (what.duration / 60)
-        return `Typical power usage: ${kwh.toFixed(2)}kWh (${what.power}w for ${what.duration} minutes)`
+        return `Typical: ${kwh.toFixed(1)}kWh (${what.power}w for ${what.duration} minutes)`
     }
 
     const doSubmit = async () => {
         if (!whereValid(where)) return
-        await onSubmit({ what, where })
+        await onSubmit({
+            what: what === ElectricityUsers[0] ? undefined : what, 
+            where, 
+            when: getRunWhen(when), 
+            duration,
+            power,
+        })
     }
 
     return (
         <Box component="form">
-            <Grid container spacing={2}>
-                <Grid item lg={2} xs={12} />
-                <Grid item lg={4} xs={12}>
+            <Grid container spacing={2} columns={8}>
+                <Grid item md={4} xs={8}>
                     <Autocomplete<ElectricityUser,false,true>
-                        sx={{ width: '100%' }}
+                        fullWidth
                         disabled={disabled}
                         disablePortal
                         disableClearable
@@ -57,13 +76,66 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                         options={ElectricityUsers}
                         onChange={(_,w) => setWhat(w)}
                         value={what} 
-                        renderInput={(params) => <TextField {...params} label='What do you want to run?' helperText={explainWhat()} />}
+                        renderInput={(params) => 
+                            <TextField {...params} 
+                                label='What?' 
+                                helperText={explainWhat()} 
+                            />
+                        }
                     />
                 </Grid>
-                <Grid item lg={3} xs={12}>
-                    <TextField
-                        sx={{ width: '100%' }}
-                        label='Where are you?'
+                <Grid item md={2} xs={4}>
+                    <TextField fullWidth
+                        label='For how long?'
+                        disabled={disabled}
+                        value={duration}
+                        type='number'
+                        onChange={(e) => setDuration(e.target.value as unknown as number)}
+                        onKeyPress={(e) => e.key === 'Enter' && doSubmit()}
+                        InputProps={{
+                            endAdornment: <InputAdornment position='end'>mins</InputAdornment>
+                        }}
+                    />
+                </Grid>
+                <Grid item md={2} xs={4}>
+                    <TextField fullWidth
+                        label='Power draw?'
+                        disabled={disabled}
+                        value={power || ''}
+                        type='number'
+                        onChange={(e) => setPower(e.target.value as unknown as number)}
+                        onKeyPress={(e) => e.key === 'Enter' && doSubmit()}
+                        InputProps={{
+                            endAdornment: power ? <InputAdornment position='end'>watts</InputAdornment> : null
+                        }}
+                    />
+                </Grid>
+
+                <Grid item md={4} xs={8}>
+                    <TextField fullWidth select
+                        sx={{ textAlign: 'left' }}
+                        label='When?'
+                        disabled={disabled}
+                        value={when}
+                        onChange={(e) => setWhen(e.target.value)}
+                    >
+                        <MenuItem key={RunWhenRange.Whenever} value={RunWhenRange.Whenever}>
+                            Next 48 hours
+                        </MenuItem>
+                        <MenuItem key={RunWhenRange.Next24h} value={RunWhenRange.Next24h}>
+                            Next 24 hours
+                        </MenuItem>
+                        <MenuItem key={RunWhenRange.Next12h} value={RunWhenRange.Next12h}>
+                            Next 12 hours
+                        </MenuItem>
+                        <MenuItem key={RunWhenRange.Next8h} value={RunWhenRange.Next8h}>
+                            Next 8 hours
+                        </MenuItem>
+                    </TextField>
+                </Grid>
+                <Grid item md={3} xs={8}>
+                    <TextField fullWidth
+                        label='Where?'
                         disabled={disabled}
                         value={where || ''}
                         onChange={(e) => checkSetWhere(e.target.value)}
@@ -79,7 +151,7 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                         required={true}
                     />
                 </Grid>
-                <Grid item lg={1} xs={12}>
+                <Grid item md={1} xs={8}>
                     <Button 
                         sx={{ marginTop: '0.5em', width: '100%' }} 
                         variant='contained' 

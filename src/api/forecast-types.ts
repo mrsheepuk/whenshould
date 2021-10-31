@@ -31,11 +31,13 @@ export class GenSource {
 
 export class PossibleTime {
   from: Date
-  to: Date
-  forecast: number
+  instTo: Date
+  instForecast: number
+  instIndex: ForecastIndex
+  inRange: boolean
+
+  to?: Date
+  forecast?: number
   index?: ForecastIndex
-  instTo?: Date
-  instForecast?: number
-  instIndex?: ForecastIndex
   totalCarbon?: number
 }
