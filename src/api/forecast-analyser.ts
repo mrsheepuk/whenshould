@@ -1,79 +1,61 @@
-import { parseISO, differenceInMinutes } from "date-fns";
+import { parseISO, differenceInMinutes, addHours } from "date-fns";
 
 import { Forecast, ForecastIndex, PossibleTime, TimeForecast } from "./forecast-types";
-import { RunWhatRequest } from "./request-types";
+import { RunWhatRequest, RunWhenRange } from "./request-types";
 
 const NO_FORECAST = 999999
 
-export function findBestWindow(req: RunWhatRequest, forecast: Forecast): { best: PossibleTime | null, all: PossibleTime[] } {
-    let best: PossibleTime = {
-        from: new Date(),
-        to: new Date(),
-        forecast: NO_FORECAST,
-    }
+export function findBestWindow(req: RunWhatRequest, forecast: Forecast): { 
+    best: PossibleTime | null, 
+    bestOverall: PossibleTime | null, 
+    all: PossibleTime[] 
+} {
+    let best: PossibleTime | null = null
+    let bestOverall: PossibleTime | null = null
     let all: PossibleTime[] = []
 
-    // Filter by start/end if specified
-    const possible = forecast.data.filter((tf) => {
-        if (req.notBefore && req.notBefore < parseISO(tf.from)) {
-            return false
-        }
-        if (req.finishBy && parseISO(tf.to) > req.finishBy) {
-            return false
-        }
-        return true
-    })
-
-    if (!req.what?.duration) {
-        // Simple mode: just find the best time if we have no required
-        // duration
-        possible.forEach((tf) => {
-            const fc: PossibleTime = { 
-                forecast: tf.intensity.forecast, 
-                index: tf.intensity.index,
-                instForecast: tf.intensity.forecast, 
-                instIndex: tf.intensity.index,
-                from:  parseISO(tf.from), 
-                to: parseISO(tf.to),
-            }
-            all.push(fc)
-            if (fc.forecast < best.forecast) {
-                best = fc
-            }
-        });
-    } else {
-        // Complex mode: need to sum over consecutive blocks to find the
-        // best N-block long period
-        const duration = req.what.duration
-        possible.forEach((tf, ind) => {
-            const calc = calcCurrentWindow(possible, ind, duration)
-            const from = parseISO(tf.from)
-            if (!calc) return
-            const fc: PossibleTime = { 
-                forecast: calc.forecast, 
-                from: from, 
-                to: calc.endTime,
-                index: getIndex(calc.forecast),
-                instForecast: tf.intensity.forecast,
-                instIndex: tf.intensity.index,
-                instTo: parseISO(tf.to)
-            }
-            if (req.what?.duration && req.what?.power) {
-                fc.totalCarbon = fc.forecast * (((req.what.power) / 1000) * (req.what.duration / 60))
-            }
-            all.push(fc)
-            if (fc.forecast < best.forecast) {
-                best = fc
-            }
-        });
+    let endTime = addHours(new Date(), 72)
+    switch (req.when) {
+        case RunWhenRange.Next8h:
+            endTime = addHours(new Date(), 8)
+            break
+        case RunWhenRange.Next12h:
+            endTime = addHours(new Date(), 12)
+            break
+        case RunWhenRange.Next24h:
+            endTime = addHours(new Date(), 24)
+            break
     }
 
-    // If we've failed to match inside the time window
-    if (best.forecast === NO_FORECAST) {
-        return { best: null, all }
-    }
+    forecast.data.forEach((tf, ind) => {
+        const calc = calcCurrentWindow(forecast.data, ind, req.duration)
+        const from = parseISO(tf.from)
+        const to = parseISO(tf.to)
+        const fc: PossibleTime = { 
+            from: from,
+            instTo: to,
+            instForecast: tf.intensity.forecast,
+            instIndex: tf.intensity.index,
+            inRange: to < endTime
+        }
+        if (calc) {
+            fc.forecast = calc.forecast 
+            fc.to = calc.endTime
+            fc.index = getIndex(calc.forecast)
+            if (req.power) {
+                fc.totalCarbon = fc.forecast * (((req.power) / 1000) * (req.duration / 60))
+            }
+            if (!bestOverall || fc.forecast < (bestOverall.forecast || NO_FORECAST)) {
+                bestOverall = fc 
+            }
+            if (fc.inRange && (!best || fc.forecast < (best.forecast || NO_FORECAST))) {
+                best = fc
+            }
+        }
+        all.push(fc)
+    });
 
-    return { best, all }
+    return { best, bestOverall, all }
 }
 
 function calcCurrentWindow(possible: TimeForecast[], startIndex: number, reqDurationMins: number): { forecast: number, endTime: Date } | null {

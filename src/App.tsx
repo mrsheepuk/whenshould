@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Container, Grid } from '@mui/material'
+import { Button, Container, Grid } from '@mui/material'
 
 import './App.css';
 import { Forecast } from './api/forecast-types';
@@ -15,10 +15,12 @@ function App() {
   const [req, setReq] = useState<RunWhatRequest | undefined>(undefined)
   const [forecast, setForecast] = useState<Forecast | undefined>(undefined)
   const [err, setErr] = useState<string | undefined>(undefined)
+  const [edit, setEdit] = useState<boolean>(false)
 
   const load = async (req: RunWhatRequest) => {
     if (!req.where) return
     setReq(req)
+    setEdit(false)
     setLoading(true)
     setErr(undefined)
     const f = await new Forecaster().getForecast(req.where)
@@ -39,15 +41,27 @@ function App() {
         </header>
         <Container sx={{ marginTop: '1em' }}>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <RunWhatForm onSubmit={(req) => load(req)} disabled={loading} />
-              {err ? (
-                <Alert severity="error">
-                  <AlertTitle>Error</AlertTitle>
-                  {err}
-                </Alert>
-              ) : null}
-            </Grid>
+            {!req || edit ? (
+              <Grid item xs={12}>
+                <RunWhatForm presets={req} onSubmit={(req) => load(req)} disabled={loading} />
+                {err ? (
+                  <Alert severity="error">
+                    <AlertTitle>Error</AlertTitle>
+                    {err}
+                  </Alert>
+                ) : null}
+              </Grid>
+            ) : (
+              <Grid item xs={12}>
+                <Button 
+                    disabled={loading}
+                    sx={{ marginTop: '0.5em', width: '100%' }} 
+                    variant='contained' 
+                    onClick={() => setEdit(true)}>
+                  Change options
+                </Button>
+              </Grid>
+            )}
             <Grid item xs={12}>
               <ForecastDisplay req={req} forecast={forecast} loading={loading} />
             </Grid>
