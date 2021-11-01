@@ -36,14 +36,12 @@ export function ForecastDisplay({ req, forecast, loading } : {
     const showBest = (b: PossibleTime) => (
         <>
             <Typography variant='h5' component='p' paragraph={true}>
-                The time with the lowest carbon impact to start your {getDevice()}
+                Start your {getDevice()} at<br/><b>{format(b.from, 'EEEE HH:mm')}</b><br/>
+                {` `}for the lowest carbon impact in the {explainRunWhen(req.when)}
                 {` `}in {forecast.postcode}
-                {` `}in the {explainRunWhen(req.when)}
-                {` `}is {b.to ? 'from' : 'at'} <b>{format(b.from, 'EEEE HH:mm')}</b>
-                {` `}{b.to ? <>(running until {format(b.to, 'HH:mm')})</> : null}
             </Typography>
             <Typography variant='subtitle1' component='p' paragraph={true}>
-                Estimated carbon intensity: {b.forecast?.toFixed(1)}g CO2e/kWh
+                Estimated carbon intensity from {format(b.from, 'EEEE HH:mm')} {b.to ? `to ${format(b.to, 'HH:mm')}` : null}: {b.forecast?.toFixed(1)}g CO2e/kWh
                 {b.totalCarbon ? <> | Total estimated emissions: <b>{b.totalCarbon.toFixed(0)}g CO2e</b></> : null}
             </Typography>
         </>
@@ -70,7 +68,7 @@ export function ForecastDisplay({ req, forecast, loading } : {
             {overalBetter() && bestOverall ? (
                 <>
                     <Typography variant='h5' component='p' paragraph={true}>
-                        You could save {percentBetter().toFixed(0)}% further carbon by waiting to run your {getDevice()} 
+                        You could save {percentBetter().toFixed(0)}% carbon emissions by waiting to run your {getDevice()} 
                         {` `}until <b>{format(bestOverall.from, 'EEEE HH:mm')}</b>.
                     </Typography>
                     <Typography variant='subtitle1' component='p' paragraph={true}>
