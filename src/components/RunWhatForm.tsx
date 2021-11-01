@@ -95,6 +95,7 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                         InputProps={{
                             endAdornment: <InputAdornment position='end'>mins</InputAdornment>
                         }}
+                        helperText='Approximate duration'
                     />
                 </Grid>
                 <Grid item md={2} xs={4}>
@@ -108,6 +109,7 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                         InputProps={{
                             endAdornment: power ? <InputAdornment position='end'>watts</InputAdornment> : null
                         }}
+                        helperText='In watts, if known'
                     />
                 </Grid>
 
@@ -118,6 +120,7 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                         disabled={disabled}
                         value={when}
                         onChange={(e) => setWhen(e.target.value)}
+                        helperText='When do you need to finish by'
                     >
                         <MenuItem key={RunWhenRange.Whenever} value={RunWhenRange.Whenever}>
                             Next 48 hours
@@ -147,7 +150,7 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                             pattern: '^[A-Z]{1,2}\\d[A-Z\\d]?$'
                         }}
                         error={whereErr != null}
-                        helperText={whereErr}
+                        helperText={whereErr || 'What UK postcode area are you in'}
                         required={true}
                     />
                 </Grid>
