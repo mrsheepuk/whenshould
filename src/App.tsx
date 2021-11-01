@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Button, Container, Grid } from '@mui/material'
+import { Button, Container, Grid, Toolbar } from '@mui/material'
 
 import './App.css';
+import Logo from './leaf.svg';
 import { Forecast } from './api/forecast-types';
 import { Forecaster } from './api/forecaster';
 import { RunWhatForm } from './components/RunWhatForm';
@@ -35,13 +36,28 @@ function App() {
   return (
     <React.Fragment>
       <CssBaseline />
-      <div className="App">
-        <header className="App-header">
-          <Typography variant='h4' component='h1'>Tell me when to run...</Typography>
+      <Container maxWidth="lg" sx={{ textAlign: 'center' }}>
+        <header>
+          <Toolbar sx={{ borderBottom: '1px solid #ccc', marginBottom: '1vh' }}>
+            <img className='logo' src={Logo} alt="When to..." />
+            <Typography
+              component="h1"
+              variant="h5"
+              color="inherit"
+              align="center"
+              noWrap
+              sx={{ flex: 1 }}
+            >
+              Tell me when to run...
+            </Typography>
+            {/* <Button variant="outlined" size="small">
+              Sign up
+            </Button>             */}
+          </Toolbar>
         </header>
-        <Container sx={{ marginTop: '1em' }}>
+        <main>
           <Grid container spacing={2}>
-            {!req || edit ? (
+            {!req || edit || err ? (
               <Grid item xs={12}>
                 <RunWhatForm presets={req} onSubmit={(req) => load(req)} disabled={loading} />
                 {err ? (
@@ -66,8 +82,8 @@ function App() {
               <ForecastDisplay req={req} forecast={forecast} loading={loading} />
             </Grid>
           </Grid>
-        </Container>
-      </div>
+        </main>
+      </Container>
     </React.Fragment>
   );
 }
