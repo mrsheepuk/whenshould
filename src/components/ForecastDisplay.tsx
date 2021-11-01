@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
+import { Alert, Button, ButtonGroup, FormControl, FormControlLabel, LinearProgress, Radio, RadioGroup, Typography } from '@mui/material';
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { Forecast, ForecastIndex, PossibleTime } from '../api/forecast-types';
-import { FormControl, FormControlLabel, FormLabel, LinearProgress, Radio, RadioGroup, Typography } from '@mui/material';
-import { explainRunWhen, RunWhatRequest } from '../api/request-types';
+import { explainRunWhen, RunWhatRequest, RunWhenRange } from '../api/request-types';
 import { findBestWindow } from '../api/forecast-analyser';
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 export function ForecastDisplay({ req, forecast, loading } : { 
     req?: RunWhatRequest, 
@@ -13,12 +13,13 @@ export function ForecastDisplay({ req, forecast, loading } : {
     loading: boolean,
 }) {
     const [showTotalCarbon, setShowTotalCarbon] = useState<boolean>(false)
+    const [graphAll, setGraphAll] = useState<boolean>(true)
 
     if (loading) {
         return (
             <>
-                <LinearProgress color="success" />
-                <Typography variant='caption'>Asking the National Grid elves how windy it is... and how many dinosaurs they're burning!</Typography>
+                <LinearProgress color="success" sx={{ marginTop: '2em' }} />
+                <Typography variant='caption' paragraph={true} sx={{ marginTop: '2em', fontSize: '1em' }}>Asking the National Grid elves how windy it is... and how many dinosaurs they're burning!</Typography>
             </>
         )
 
@@ -36,13 +37,20 @@ export function ForecastDisplay({ req, forecast, loading } : {
     const showBest = (b: PossibleTime) => (
         <>
             <Typography variant='h5' component='p' paragraph={true}>
-                Start your {getDevice()} at<br/><b>{format(b.from, 'EEEE HH:mm')}</b><br/>
-                {` `}for the lowest carbon impact in the {explainRunWhen(req.when)}
+                Start your {getDevice()} at
+            </Typography>    
+            <Typography variant='h4' component='p' paragraph={true}>
+                <b>{format(b.from, 'EEEE HH:mm')}</b>
+            </Typography>    
+            <Typography variant='h5' component='p' paragraph={true}>
+                for the lowest carbon emissions during the {explainRunWhen(req.when)}
                 {` `}in {forecast.postcode}
             </Typography>
-            <Typography variant='subtitle1' component='p' paragraph={true}>
-                Estimated carbon intensity from {format(b.from, 'EEEE HH:mm')} {b.to ? `to ${format(b.to, 'HH:mm')}` : null}: {b.forecast?.toFixed(1)}g CO2e/kWh
-                {b.totalCarbon ? <> | Total estimated emissions: <b>{b.totalCarbon.toFixed(0)}g CO2e</b></> : null}
+            <Typography variant='subtitle1'>
+                Estimated carbon intensity: <b>{b.forecast?.toFixed(0)}g CO2e/kWh</b>
+                {b.totalCarbon ? (
+                    <> - Total emissions: <b>{b.totalCarbon.toFixed(0)}g CO2</b></>
+                ) : null}
             </Typography>
         </>
     )
@@ -66,31 +74,33 @@ export function ForecastDisplay({ req, forecast, loading } : {
             )}
 
             {overalBetter() && bestOverall ? (
-                <>
-                    <Typography variant='h5' component='p' paragraph={true}>
-                        You could save {percentBetter().toFixed(0)}% carbon emissions by waiting to run your {getDevice()} 
-                        {` `}until <b>{format(bestOverall.from, 'EEEE HH:mm')}</b>.
-                    </Typography>
-                    <Typography variant='subtitle1' component='p' paragraph={true}>
-                        At this time, the estimated carbon intensity is: {bestOverall.forecast?.toFixed(1)}g CO2e/kWh
-                        {bestOverall.totalCarbon ? <> | Total estimated emissions: <b>{bestOverall.totalCarbon.toFixed(0)}g CO2e</b></> : null}
-                    </Typography>
-                </>
+                <Alert severity='success' sx={{ marginTop: '1em', marginBottom: '1em' }}>
+                    You could save {percentBetter().toFixed(0)}% more CO2 if you wait 
+                    {` `}until <b>{format(bestOverall.from, 'EEEE HH:mm')}</b> when the estimated 
+                    carbon intensity drops to {bestOverall.forecast?.toFixed(0)}g CO2e/kWh
+                    {bestOverall.totalCarbon ? <> - total emissions: <b>{bestOverall.totalCarbon.toFixed(0)}g CO2</b></> : null}.
+                </Alert>
             ) : null}
 
             {req.power ? (
                 <FormControl component="fieldset">
-                    <FormLabel component="legend">Show estimated:</FormLabel>
-                    <RadioGroup row aria-label="graph" name="row-radio-buttons-group" 
+                    <RadioGroup aria-label="graph estimated" name="row-radio-buttons-group" 
                             value={showTotalCarbon ? 'true' : 'false'} 
                             onChange={(e) => setShowTotalCarbon(e.target.value==='true')}>
-                        <FormControlLabel value='false' control={<Radio />} label="g CO2e/kWh for each 30 minute period" />
-                        <FormControlLabel value='true' control={<Radio />} label={`g CO2 total for running your ${getDevice()}`} />
+                        <FormControlLabel value='false' control={<Radio />} label="Show g CO2e/kWh for every 30 minutes" />
+                        <FormControlLabel value='true' control={<Radio />} label={`Show total CO2 to run your ${getDevice()}`} />
                     </RadioGroup>
                 </FormControl>
             ) : null}
-            <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={all} barGap={0} barCategoryGap={0}>
+            {req.when !== RunWhenRange.Whenever ? (
+                <ButtonGroup variant='outlined' sx={{ marginBottom: '1em' }}>
+                    <Button onClick={() => setGraphAll(!graphAll)} variant={graphAll ? 'outlined' : 'contained'}>{explainRunWhen(req.when)}</Button>
+                    <Button onClick={() => setGraphAll(!graphAll)} variant={!graphAll ? 'outlined' : 'contained'}>All data (48 hours)</Button>
+                </ButtonGroup>
+            ) : null}
+
+            <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={all.filter((v) => graphAll || v.inRange)} barGap={0} barCategoryGap={0}>
                     <Bar type="monotone" dataKey={graphDataKey} strokeWidth={0}>
                         {all.map((entry) => (
                             <Cell fill={getIntensityFill(entry, intensityKey)} opacity={entry.inRange ? 1 : 0.5} />

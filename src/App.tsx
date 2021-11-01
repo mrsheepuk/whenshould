@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Button, Container, Grid, Toolbar } from '@mui/material'
+import { Button, Container, Grid, Toolbar, Alert, AlertTitle, Typography } from '@mui/material'
 
 import './App.css';
 import Logo from './leaf.svg';
@@ -9,7 +9,6 @@ import { Forecaster } from './api/forecaster';
 import { RunWhatForm } from './components/RunWhatForm';
 import { ForecastDisplay } from './components/ForecastDisplay';
 import { RunWhatRequest } from './api/request-types';
-import { Alert, AlertTitle, Typography } from '@mui/material';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(false)
@@ -50,15 +49,17 @@ function App() {
             >
               Tell me when to run...
             </Typography>
-            {/* <Button variant="outlined" size="small">
-              Sign up
-            </Button>             */}
           </Toolbar>
         </header>
         <main>
           <Grid container spacing={2}>
             {!req || edit || err ? (
               <Grid item xs={12}>
+                <Typography variant='body1' component='p' paragraph={true}>
+                  Find the lowest carbon time to run your dishwasher, charge your EV,
+                  use your tumble dryer, or any other electrical appliance by entering 
+                  a few details.
+                </Typography>
                 <RunWhatForm presets={req} onSubmit={(req) => load(req)} disabled={loading} />
                 {err ? (
                   <Alert severity="error">
@@ -69,13 +70,14 @@ function App() {
               </Grid>
             ) : (
               <Grid item xs={12}>
-                <Button 
-                    disabled={loading}
-                    sx={{ marginTop: '0.5em', width: '100%' }} 
-                    variant='contained' 
-                    onClick={() => setEdit(true)}>
-                  Change options
-                </Button>
+                {!loading ? (
+                  <Button 
+                      sx={{ marginTop: '0.5em', width: '100%' }} 
+                      variant='contained' 
+                      onClick={() => setEdit(true)}>
+                    Change options
+                  </Button>
+                ) : null}
               </Grid>
             )}
             <Grid item xs={12}>
