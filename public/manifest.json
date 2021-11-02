@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "When To...",
+  "name": "Find lowest carbon time to run electrical appliances",
   "icons": [
     {
       "src": "favicon.ico",
