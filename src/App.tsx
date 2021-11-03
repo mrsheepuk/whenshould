@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Button, Container, Grid, Toolbar, Alert, AlertTitle, Typography, Link } from '@mui/material'
-import ReactGA from 'react-ga';
 
 import './App.css';
 import Logo from './leaf.svg';
@@ -27,10 +26,14 @@ function App() {
     setEdit(false)
     setLoading(true)
     setErr(undefined)
-    ReactGA.event({
-      category: 'Forecast',
-      action: 'Requested',
-    })
+    const pcmatch = req.where.match(/^[a-z]+/i)
+    if (pcmatch) {
+      window.gtag('event', 'postcode_forecast', {
+        'event_category': 'forecast',
+        'event_label': pcmatch[0].toUpperCase()
+      });
+    }
+
     const f = await new Forecaster().getForecast(req.where)
     if (f.ok) {
       setForecast(f.forecast)
