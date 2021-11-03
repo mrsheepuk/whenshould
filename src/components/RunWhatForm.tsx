@@ -120,7 +120,6 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                         disabled={disabled}
                         value={when}
                         onChange={(e) => setWhen(e.target.value)}
-                        helperText='When do you need to finish by'
                     >
                         <MenuItem key={RunWhenRange.Whenever} value={RunWhenRange.Whenever}>
                             Next 48 hours
@@ -144,13 +143,13 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                         onChange={(e) => checkSetWhere(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && doSubmit()}
                         InputProps={{
-                            placeholder: 'Postcode (e.g. SW19)'
+                            placeholder: 'Postcode area (e.g. SW19)'
                         }}
                         inputProps={{
                             pattern: '^[A-Z]{1,2}\\d[A-Z\\d]?$'
                         }}
                         error={whereErr != null}
-                        helperText={whereErr || 'What UK postcode area are you in'}
+                        helperText={whereErr}
                         required={true}
                     />
                 </Grid>
