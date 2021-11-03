@@ -3,10 +3,6 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import ReactGA from 'react-ga';
-
-ReactGA.initialize('G-WS37FTX6MC')
-ReactGA.pageview(window.location.pathname + window.location.search)
 
 ReactDOM.render(
   <React.StrictMode>

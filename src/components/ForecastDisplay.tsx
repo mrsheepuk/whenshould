@@ -102,8 +102,8 @@ export function ForecastDisplay({ req, forecast, loading } : {
             <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={all.filter((v) => graphAll || v.inRange)} barGap={0} barCategoryGap={0}>
                     <Bar type="monotone" dataKey={graphDataKey} strokeWidth={0}>
-                        {all.map((entry) => (
-                            <Cell fill={getIntensityFill(entry, intensityKey)} opacity={entry.inRange ? 1 : 0.5} />
+                        {all.map((entry, i) => (
+                            <Cell key={i} fill={getIntensityFill(entry, intensityKey)} opacity={entry.inRange ? 1 : 0.5} />
                         ))}
                     </Bar>
                     <CartesianGrid stroke="#ccc" strokeDasharray="2 5" />
