@@ -1,31 +1,31 @@
 import { parseISO, differenceInMinutes, addHours } from "date-fns";
 
 import { Forecast, ForecastIndex, PossibleTime, TimeForecast } from "./forecast-types";
-import { RunWhatRequest, RunWhenRange } from "./request-types";
+import { getRunWhenHours, RunWhatRequest, RunWhenRange } from "./request-types";
 
 const NO_FORECAST = 999999
 
-export function findBestWindow(req: RunWhatRequest, forecast: Forecast): { 
-    best: PossibleTime | null, 
-    bestOverall: PossibleTime | null, 
+export type Forecasts = {[key in RunWhenRange]: (PossibleTime | null)}
+
+export function analyseForecast(req: RunWhatRequest, forecast: Forecast): { 
+    forecasts: Forecasts,
     all: PossibleTime[] 
 } {
-    let best: PossibleTime | null = null
-    let bestOverall: PossibleTime | null = null
-    let all: PossibleTime[] = []
-
-    let endTime = addHours(new Date(), 72)
-    switch (req.when) {
-        case RunWhenRange.Next8h:
-            endTime = addHours(new Date(), 8)
-            break
-        case RunWhenRange.Next12h:
-            endTime = addHours(new Date(), 12)
-            break
-        case RunWhenRange.Next24h:
-            endTime = addHours(new Date(), 24)
-            break
+    const forecasts: Forecasts = {
+        [RunWhenRange.Now]: null,
+        [RunWhenRange.Next8h]: null,
+        [RunWhenRange.Next12h]: null,
+        [RunWhenRange.Next24h]: null,
+        [RunWhenRange.Whenever]: null,
     }
+    const latestStartTimes: { [key in RunWhenRange]: Date} = {
+        [RunWhenRange.Now]: new Date(),
+        [RunWhenRange.Next8h]: addHours(new Date(), 8),
+        [RunWhenRange.Next12h]: addHours(new Date(), 12),
+        [RunWhenRange.Next24h]: addHours(new Date(), 24),
+        [RunWhenRange.Whenever]: addHours(new Date(), 72),
+    }
+    let all: PossibleTime[] = []
 
     forecast.data.forEach((tf, ind) => {
         const calc = calcCurrentWindow(forecast.data, ind, req.duration)
@@ -36,8 +36,15 @@ export function findBestWindow(req: RunWhatRequest, forecast: Forecast): {
             instTo: to,
             instForecast: tf.intensity.forecast,
             instIndex: tf.intensity.index,
-            inRange: to < endTime
-        }
+            inRange: getRunWhenHours(RunWhenRange.Whenever)
+        };
+
+        [RunWhenRange.Next24h, RunWhenRange.Next12h, RunWhenRange.Next8h].forEach((range) => {
+            if (fc.from <= latestStartTimes[range]) {
+                fc.inRange = getRunWhenHours(range)
+            }
+        })
+
         if (calc) {
             fc.forecast = calc.forecast 
             fc.to = calc.endTime
@@ -45,17 +52,21 @@ export function findBestWindow(req: RunWhatRequest, forecast: Forecast): {
             if (req.power) {
                 fc.totalCarbon = fc.forecast * (((req.power) / 1000) * (req.duration / 60))
             }
-            if (!bestOverall || fc.forecast < (bestOverall.forecast || NO_FORECAST)) {
-                bestOverall = fc 
-            }
-            if (fc.inRange && (!best || fc.forecast < (best.forecast || NO_FORECAST))) {
-                best = fc
+            
+            [RunWhenRange.Next8h, RunWhenRange.Next12h, RunWhenRange.Next24h, RunWhenRange.Whenever].forEach((range) => {
+                if (fc.inRange <= getRunWhenHours(range) && (!forecasts[range] || calc.forecast < (forecasts[range]?.forecast || NO_FORECAST))) {
+                    forecasts[range] = fc
+                }
+            })
+            if (forecasts[RunWhenRange.Now] === null) {
+                // Always use the first forecast as the 'now'
+                forecasts[RunWhenRange.Now] = fc
             }
         }
         all.push(fc)
     });
 
-    return { best, bestOverall, all }
+    return { forecasts, all }
 }
 
 function calcCurrentWindow(possible: TimeForecast[], startIndex: number, reqDurationMins: number): { forecast: number, endTime: Date } | null {
