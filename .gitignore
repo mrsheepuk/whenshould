@@ -5,6 +5,9 @@
 /.pnp
 .pnp.js
 
+# generated
+public/version.dat
+
 # testing
 /coverage
 

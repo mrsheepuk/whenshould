@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Button, Container, Grid, Toolbar, Alert, AlertTitle, Typography, Link } from '@mui/material'
+import { Button, Container, Grid, Toolbar, Alert, AlertTitle, Typography, Link, Snackbar } from '@mui/material'
 
 import './App.css';
 import Logo from './leaf.svg';
@@ -11,6 +11,7 @@ import { ForecastDisplay } from './components/ForecastDisplay';
 import { RunWhatRequest } from './api/request-types';
 import { HowWorksDialog } from './components/HowWorksDialog';
 import { WhyDialog } from './components/WhyDialog';
+import { VERSION } from './version';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(false)
@@ -19,6 +20,25 @@ function App() {
   const [err, setErr] = useState<string | undefined>(undefined)
   const [edit, setEdit] = useState<boolean>(false)
   const [showInfo, setShowInfo] = useState<'about'|'why'|null>(null)
+  const [newVersionAvailable, setNewVersionAvailable] = useState<boolean|string>(false)
+
+  useEffect(() => {
+    checkVersion()
+    const versionCheck = setInterval(checkVersion, 30 * 1000)
+    return () => clearInterval(versionCheck)
+  }, [])
+
+  const checkVersion = async () => {
+    try {
+      let res = await fetch(`version.dat?${new Date().getTime()}`)
+      if (res.ok) {
+        const newVer = (await res.text()).trim()
+        setNewVersionAvailable(VERSION !== newVer ? newVer : false)
+      }
+    } catch {
+      // Ignoring errors here, it won't hurt anything.
+    }
+  }
 
   const load = async (req: RunWhatRequest) => {
     if (!req.where) return
@@ -65,6 +85,16 @@ function App() {
         <main>
           <HowWorksDialog open={showInfo==='about'} onClose={() => setShowInfo(null)} />
           <WhyDialog open={showInfo==='why'} onClose={() => setShowInfo(null)} />
+          <Snackbar
+            open={newVersionAvailable !== false}
+            onClose={() => setNewVersionAvailable(false)}
+            message="whento.info has been updated"
+            action={(
+              <Button color='info' size="small" onClick={() => window.location.replace(window.location.toString() + `?ver=${newVersionAvailable}`)}>
+                Reload now
+              </Button>
+            )}
+          />
           <Grid container spacing={2}>
             {!req || edit || err ? (
               <Grid item xs={12}>
@@ -77,8 +107,8 @@ function App() {
                 </Typography>
                 <RunWhatForm presets={req} onSubmit={(req) => load(req)} disabled={loading} />
                 {err ? (
-                  <Alert severity="error">
-                    <AlertTitle>Error</AlertTitle>
+                  <Alert severity="error" sx={{ marginTop: '1em', marginBottom: '1em', textAlign: 'left' }}>
+                    <AlertTitle>Problem retrieving forecast</AlertTitle>
                     {err}
                   </Alert>
                 ) : null}
