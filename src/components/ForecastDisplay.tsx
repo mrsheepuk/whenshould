@@ -4,8 +4,8 @@ import { Alert, Button, ButtonGroup, FormControl, FormControlLabel, LinearProgre
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 import { Forecast, ForecastIndex, PossibleTime } from '../api/forecast-types';
-import { explainRunWhen, RunWhatRequest, RunWhenRange } from '../api/request-types';
-import { findBestWindow } from '../api/forecast-analyser';
+import { explainRunWhen, getRunWhenHours, RunWhatRequest, RunWhenRange } from '../api/request-types';
+import { analyseForecast } from '../api/forecast-analyser';
 
 export function ForecastDisplay({ req, forecast, loading } : { 
     req?: RunWhatRequest, 
@@ -13,7 +13,7 @@ export function ForecastDisplay({ req, forecast, loading } : {
     loading: boolean,
 }) {
     const [showTotalCarbon, setShowTotalCarbon] = useState<boolean>(false)
-    const [graphAll, setGraphAll] = useState<boolean>(true)
+    const [graphRange, setGraphRange] = useState<RunWhenRange>(RunWhenRange.Whenever)
 
     if (loading) {
         return (
@@ -27,55 +27,60 @@ export function ForecastDisplay({ req, forecast, loading } : {
 
     if (!forecast || !req) return null
 
-    const { best, bestOverall, all } = findBestWindow(req, forecast)
+    const { forecasts, all } = analyseForecast(req, forecast)
+
+    const best = forecasts[req.when]
+    const bestOverall = forecasts[RunWhenRange.Whenever]
+    const now = forecasts[RunWhenRange.Now]
     const graphDataKey = req.power && showTotalCarbon ? 'totalCarbon' : 'instForecast'
     const intensityKey = req.power && showTotalCarbon ? 'index' : 'instIndex'
+    const runWhenHrs = getRunWhenHours(req.when)
+    const graphHrs = getRunWhenHours(graphRange)
     const getDevice = () => {
         return req.what?.label || 'device'
     }
 
-    const showBest = (b: PossibleTime) => (
-        <>
-            <Typography variant='h5' component='p' paragraph={true}>
-                Start your {getDevice()} at
-            </Typography>    
-            <Typography variant='h4' component='p' paragraph={true}>
-                <b>{format(b.from, 'EEEE HH:mm')}</b>
-            </Typography>    
-            <Typography variant='h5' component='p' paragraph={true}>
-                for the lowest carbon emissions during the {explainRunWhen(req.when)}
-                {` `}in {forecast.postcode}
-            </Typography>
-            <Typography variant='subtitle1'>
-                Estimated carbon intensity: <b>{b.forecast?.toFixed(0)}g CO2e/kWh</b>
-                {b.totalCarbon ? (
-                    <> - Total emissions: <b>{b.totalCarbon.toFixed(0)}g CO2</b></>
-                ) : null}
-            </Typography>
-        </>
-    )
-
     const overalBetter = () => {
         return bestOverall && best && 
             bestOverall.from !== best.from && 
-            percentBetter() > 10
+            percentBetter(bestOverall, best) > 10
     }
 
-    const percentBetter = () => {
-        return 100 - (((bestOverall?.forecast || 1) / (best?.forecast || 1)) * 100)
+    const percentBetter = (a: PossibleTime, b: PossibleTime) => {
+        return 100 - (((a?.forecast || 1) / (b?.forecast || 1)) * 100)
     }
 
     return (
         <>
-            {best ? showBest(best) : (
+            {best && now ? (
+                <>
+                    <Typography variant='h5' component='p' paragraph={true}>
+                        Start your {getDevice()} at
+                    </Typography>    
+                    <Typography variant='h4' component='p' paragraph={true}>
+                        <b>{format(best.from, 'EEEE HH:mm')}</b>
+                    </Typography>    
+                    <Typography variant='h5' component='p' paragraph={true}>
+                        for the lowest carbon emissions during the {explainRunWhen(req.when)}
+                        {` `}in {forecast.postcode}
+                    </Typography>
+                    <Typography variant='subtitle1'>
+                        Estimated carbon intensity: <b>{best.forecast?.toFixed(0)}g CO2e/kWh</b>
+                        {best.totalCarbon ? (
+                            <> - Total emissions: <b>{best.totalCarbon.toFixed(0)}g CO2</b></>
+                        ) : null}<br/>
+                        <><b>{(percentBetter(best, now)).toFixed(0)}% lower</b> than now ({now.forecast?.toFixed(0)}g CO2e/kWh)</>
+                    </Typography>
+                </>
+            ) : (
                 <Typography variant='body1'>
                     Could not identify best period to use
                 </Typography>
             )}
 
-            {overalBetter() && bestOverall ? (
+            {overalBetter() && bestOverall && best ? (
                 <Alert severity='success' sx={{ marginTop: '1em', marginBottom: '1em' }}>
-                    You could save {percentBetter().toFixed(0)}% more CO2 if you wait 
+                    You could save {percentBetter(bestOverall, best).toFixed(0)}% more CO2 if you wait 
                     {` `}until <b>{format(bestOverall.from, 'EEEE HH:mm')}</b> when the estimated 
                     carbon intensity drops to {bestOverall.forecast?.toFixed(0)}g CO2e/kWh
                     {bestOverall.totalCarbon ? <> - total emissions: <b>{bestOverall.totalCarbon.toFixed(0)}g CO2</b></> : null}.
@@ -94,16 +99,18 @@ export function ForecastDisplay({ req, forecast, loading } : {
             ) : null}
             {req.when !== RunWhenRange.Whenever ? (
                 <ButtonGroup variant='outlined' sx={{ marginBottom: '1em' }}>
-                    <Button onClick={() => setGraphAll(!graphAll)} variant={graphAll ? 'outlined' : 'contained'}>{explainRunWhen(req.when)}</Button>
-                    <Button onClick={() => setGraphAll(!graphAll)} variant={!graphAll ? 'outlined' : 'contained'}>All data (48 hours)</Button>
+                    <Button onClick={() => setGraphRange(RunWhenRange.Next8h)} variant={graphRange !== RunWhenRange.Next8h ? 'outlined' : 'contained'}>Next 8h</Button>
+                    <Button onClick={() => setGraphRange(RunWhenRange.Next12h)} variant={graphRange !== RunWhenRange.Next12h ? 'outlined' : 'contained'}>12h</Button>
+                    <Button onClick={() => setGraphRange(RunWhenRange.Next24h)} variant={graphRange !== RunWhenRange.Next24h ? 'outlined' : 'contained'}>24h</Button>
+                    <Button onClick={() => setGraphRange(RunWhenRange.Whenever)} variant={graphRange !== RunWhenRange.Whenever ? 'outlined' : 'contained'}>All data (48 hours)</Button>
                 </ButtonGroup>
             ) : null}
 
             <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={all.filter((v) => graphAll || v.inRange)} barGap={0} barCategoryGap={0}>
+                <BarChart data={all.filter((v) => v.inRange <= graphHrs)} barGap={0} barCategoryGap={0}>
                     <Bar type="monotone" dataKey={graphDataKey} strokeWidth={0}>
                         {all.map((entry, i) => (
-                            <Cell key={i} fill={getIntensityFill(entry, intensityKey)} opacity={entry.inRange ? 1 : 0.5} />
+                            <Cell key={i} fill={getIntensityFill(entry, intensityKey)} opacity={entry.inRange <= runWhenHrs ? 1 : 0.5} />
                         ))}
                     </Bar>
                     <CartesianGrid stroke="#ccc" strokeDasharray="2 5" />

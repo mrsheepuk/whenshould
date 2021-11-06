@@ -34,7 +34,7 @@ export class PossibleTime {
   instTo: Date
   instForecast: number
   instIndex: ForecastIndex
-  inRange: boolean
+  inRange: number
 
   to?: Date
   forecast?: number
