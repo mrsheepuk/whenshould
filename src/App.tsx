@@ -13,6 +13,8 @@ import { HowWorksDialog } from './components/HowWorksDialog';
 import { WhyDialog } from './components/WhyDialog';
 import { VERSION } from './version';
 
+const VERSION_CHECK_MINUTES = 60
+
 function App() {
   const [loading, setLoading] = useState<boolean>(false)
   const [req, setReq] = useState<RunWhatRequest | undefined>(undefined)
@@ -24,7 +26,7 @@ function App() {
 
   useEffect(() => {
     checkVersion()
-    const versionCheck = setInterval(checkVersion, 30 * 1000)
+    const versionCheck = setInterval(checkVersion, VERSION_CHECK_MINUTES * 60 * 1000)
     return () => clearInterval(versionCheck)
   }, [])
 
