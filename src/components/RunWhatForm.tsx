@@ -31,7 +31,18 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
     const whereValid = (w: string|null): boolean => {
         return (w?.match(/^[A-Z]{1,2}\d[A-Z\d]?$/i)) !== null       
     }
+    const removePostcodeSuffix = (w: string | null): string | null => {
+        if (!w) return w
+        const match = w.match(/^[A-Z]{1,2}\d[A-Z\d]?/i)
+        // If a valid match for a postcode prefix, return JUST the prefix,
+        // else return the whole user input. This will then be validated.
+        if (match && match.length === 1) {
+            return match[0]
+        }
+        return w
+    }
     const checkSetWhere = (w: string|null) => {
+        w = removePostcodeSuffix(w)
         setWhere(w)
         if (w && !whereValid(w)) {
             setWhereErr('First half of UK postcode only, e.g. SW19 or W1A')
@@ -144,9 +155,6 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                         onKeyPress={(e) => e.key === 'Enter' && doSubmit()}
                         InputProps={{
                             placeholder: 'Postcode area (e.g. SW19)'
-                        }}
-                        inputProps={{
-                            pattern: '^[A-Z]{1,2}\\d[A-Z\\d]?$'
                         }}
                         error={whereErr != null}
                         helperText={whereErr}
