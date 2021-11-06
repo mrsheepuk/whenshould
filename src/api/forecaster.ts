@@ -19,7 +19,7 @@ export class Forecaster {
             }
             let j = await res.json()
             if (!j) {
-                return { ok: false, err: 'Invalid postcode - no data available' }
+                return { ok: false, err: 'Invalid postcode or no data available - the National Grid only provide carbon data for Great Britain (not including Northern Ireland, unfortunately)' }
             }
             return { ok: true,forecast: j.data }
         } catch (err) {
