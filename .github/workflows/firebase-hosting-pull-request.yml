@@ -14,4 +14,4 @@ jobs:
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_WHEN_SHOULD }}'
-          projectId: when-should
+          projectId: '${{ secrets.FIREBASE_DEPLOY_PROJECT }}'
