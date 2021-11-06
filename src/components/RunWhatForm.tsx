@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Autocomplete, Button, Grid, InputAdornment, MenuItem, TextField } from '@mui/material';
+import { Autocomplete, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, InputAdornment, Link, MenuItem, TextField, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 
 import { ElectricityUser, ElectricityUsers } from '../data/things';
@@ -16,6 +16,7 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
     const [where, setWhere] = useState<string|null>(presets?.where || null)
     const [when, setWhen] = useState<string>(presets?.when || RunWhenRange.Next24h)
     const [whereErr, setWhereErr] = useState<string|null>(null)
+    const [showWattsHelp, setShowWattsHelp] = useState<boolean>(false)
 
     useEffect(() => {
         if (what && what.duration) {
@@ -75,6 +76,34 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
 
     return (
         <Box component="form">
+            <Dialog open={showWattsHelp} onClose={() => setShowWattsHelp(false)}>
+                <DialogTitle>Power usage</DialogTitle>
+                <DialogContent>
+                    <Typography paragraph={true} variant='body1'>
+                        This is used to estimate the total CO2
+                        emissions for using your device at the specified times. 
+                    </Typography>
+                    <Typography paragraph={true} variant='body1'>
+                        It does not affect the calculation of the best time 
+                        to run your device, so if you don't know simply keep the 
+                        default value or leave blank.
+                    </Typography>
+                    <Typography paragraph={true} variant='body1'>
+                        For an accurate estimation of total CO2 emissions
+                        set this to the <b>average</b> power used by your device
+                        during the time you will be using it.
+                    </Typography>
+                    <Typography paragraph={true} variant='body1'>
+                        Typical approximate values are pre-populated for common
+                        appliances if you select them from the 'What' drop-down. 
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button autoFocus onClick={() => setShowWattsHelp(false)}>
+                        OK
+                    </Button>
+                </DialogActions>
+            </Dialog>
             <Grid container spacing={2} columns={8}>
                 <Grid item md={4} xs={8}>
                     <Autocomplete<ElectricityUser,false,true>
@@ -111,7 +140,7 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                 </Grid>
                 <Grid item md={2} xs={4}>
                     <TextField fullWidth
-                        label='Power draw?'
+                        label='Power usage?'
                         disabled={disabled}
                         value={power || ''}
                         type='number'
@@ -120,7 +149,12 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                         InputProps={{
                             endAdornment: power ? <InputAdornment position='end'>watts</InputAdornment> : null
                         }}
-                        helperText='In watts, if known'
+                        helperText={(
+                            <>
+                                In watts, if known.{` `}
+                                <Link sx={{ cursor: 'pointer' }} onClick={() => setShowWattsHelp(true)}>Help</Link>
+                            </>
+                        )}
                     />
                 </Grid>
 
