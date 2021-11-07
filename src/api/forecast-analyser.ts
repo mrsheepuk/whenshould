@@ -11,6 +11,7 @@ export function analyseForecast(req: RunWhatRequest, forecast: Forecast): {
     forecasts: Forecasts,
     all: PossibleTime[] 
 } {
+    const date = req.startTime || new Date()
     const forecasts: Forecasts = {
         [RunWhenRange.Now]: null,
         [RunWhenRange.Next8h]: null,
@@ -19,11 +20,11 @@ export function analyseForecast(req: RunWhatRequest, forecast: Forecast): {
         [RunWhenRange.Whenever]: null,
     }
     const latestStartTimes: { [key in RunWhenRange]: Date} = {
-        [RunWhenRange.Now]: new Date(),
-        [RunWhenRange.Next8h]: addHours(new Date(), 8),
-        [RunWhenRange.Next12h]: addHours(new Date(), 12),
-        [RunWhenRange.Next24h]: addHours(new Date(), 24),
-        [RunWhenRange.Whenever]: addHours(new Date(), 72),
+        [RunWhenRange.Now]: date,
+        [RunWhenRange.Next8h]: addHours(date, 8),
+        [RunWhenRange.Next12h]: addHours(date, 12),
+        [RunWhenRange.Next24h]: addHours(date, 24),
+        [RunWhenRange.Whenever]: addHours(date, 72),
     }
     let all: PossibleTime[] = []
 
@@ -59,8 +60,11 @@ export function analyseForecast(req: RunWhatRequest, forecast: Forecast): {
                 }
             })
             if (forecasts[RunWhenRange.Now] === null) {
+                fc.comparedToNow = 100
                 // Always use the first forecast as the 'now'
                 forecasts[RunWhenRange.Now] = fc
+            } else {
+                fc.comparedToNow = 100 - (((fc.forecast || 1) / (forecasts[RunWhenRange.Now]?.forecast || 1)) * 100)
             }
         }
         all.push(fc)

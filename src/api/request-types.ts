@@ -51,9 +51,10 @@ export function explainRunWhen(when: RunWhenRange) {
 }
 
 export interface RunWhatRequest {
-    what?: ElectricityUser
+    startTime: Date|null
+    what: ElectricityUser
     where: string|null
     duration: number
-    when: RunWhenRange,
+    when: RunWhenRange
     power?: number
 }
