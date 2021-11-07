@@ -66,7 +66,8 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
     const doSubmit = async () => {
         if (!whereValid(where)) return
         await onSubmit({
-            what: what === ElectricityUsers[0] ? undefined : what, 
+            startTime: null,
+            what, 
             where, 
             when: getRunWhen(when), 
             duration,

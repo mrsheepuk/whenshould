@@ -40,4 +40,5 @@ export class PossibleTime {
   forecast?: number
   index?: ForecastIndex
   totalCarbon?: number
+  comparedToNow?: number
 }

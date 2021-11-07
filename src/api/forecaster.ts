@@ -7,11 +7,8 @@ export interface ForecastResult {
 }
 
 export class Forecaster {
-    getForecast = async(postcode: string): Promise<ForecastResult> => {
-        let date = new Date()
-        let dateUTC = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(),
- date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds())
-        let from = new Date(dateUTC).toISOString()
+    getForecast = async(postcode: string, date: Date | null): Promise<ForecastResult> => {
+        let from = getISO(date || new Date())
         try {
             let res = await fetch(`https://api.carbonintensity.org.uk/regional/intensity/${from}/fw48h/postcode/${postcode}`)
             if (!res.ok) {
@@ -26,4 +23,10 @@ export class Forecaster {
             return { ok: false, err: 'Error requesting data, please try again later'}
         }
     }
+}
+
+const getISO = (date: Date): string => {
+    let dateUTC = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(),
+date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds())
+    return new Date(dateUTC).toISOString()
 }

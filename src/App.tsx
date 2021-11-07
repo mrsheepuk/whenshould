@@ -56,7 +56,7 @@ function App() {
       });
     }
 
-    const f = await new Forecaster().getForecast(req.where)
+    const f = await new Forecaster().getForecast(req.where, req.startTime)
     if (f.ok) {
       setForecast(f.forecast)
     } else {
@@ -128,7 +128,7 @@ function App() {
               </Grid>
             )}
             <Grid item xs={12}>
-              <ForecastDisplay req={req} forecast={forecast} loading={loading} />
+              <ForecastDisplay req={req} forecast={forecast} loading={loading} onChangeOptions={() => setEdit(true)} />
             </Grid>
           </Grid>
         </main>
