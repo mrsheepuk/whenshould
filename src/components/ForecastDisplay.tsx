@@ -49,12 +49,17 @@ export function ForecastDisplay({ req, forecast, loading, onChangeOptions } : {
         return 100 - (((a?.forecast || 1) / (b?.forecast || 1)) * 100)
     }
 
-    const showIndex = (fc: PossibleTime, showInst?: boolean) => {
-        const ind = showInst ? fc.instIndex : fc.index
+    const showIndex = (fc: PossibleTime, instind?: keyof PossibleTime) => {
+        const ind = instind ? fc[instind] : fc.index
         if (ind === undefined) {
             return null
         }
-        return <>{ind}</>
+        return <>
+            <span style={{ 
+                backgroundColor: getIntensityFill(fc, instind || 'index'), 
+                color: getIntensityForeground(fc, instind || 'index')
+            }}>&nbsp;{ind}&nbsp;</span>
+        </>
     }
 
     return (
@@ -62,22 +67,20 @@ export function ForecastDisplay({ req, forecast, loading, onChangeOptions } : {
             {best && now ? (
                 <>
                     <Typography variant='body1' component='p' paragraph={true}>
-                        CO2 emissions for {forecast.postcode} are currently <b>{showIndex(now)}</b>
+                        CO2 emissions for {forecast.postcode} are currently {showIndex(now)}
                         {` `}({now.forecast?.toFixed(0)}g per kWh) - save 
-                        {` `}{best.comparedToNow?.toFixed(0)}% by starting {req.what.owned} at
+                        {` `}<b>{best.comparedToNow?.toFixed(0)}%</b> by starting {req.what.owned} at:
                     </Typography>    
                     <Typography variant='h5' component='p' paragraph={true}>
-                        <b>{format(best.from, 'EEEE HH:mm')}</b>
+                        <b>{format(best.from, 'EEEE HH:mm')}</b><br/>
+                        {showIndex(best)} - {best.forecast?.toFixed(0)}g per kWh
                     </Typography>    
                     <Typography variant='body1' component='p' paragraph={true}>
-                        for the lowest CO2 emissions during the {explainRunWhen(req.when)} - 
-                        {` `}<b>{showIndex(best)}</b> ({best.forecast?.toFixed(0)}g per kWh)
+                        This is the lowest emissions during the {explainRunWhen(req.when)}
+                        {best.totalCarbon ? (
+                            <><br/>Total: <b>{best.totalCarbon.toFixed(0)}g CO2</b></>
+                        ) : null}
                     </Typography>
-                    {best.totalCarbon ? (
-                    <Typography variant='body1'>
-                            <>Total emissions: <b>{best.totalCarbon.toFixed(0)}g CO2</b></>
-                    </Typography>
-                    ) : null}
                     </>
             ) : (
                 <Typography variant='body1'>
@@ -134,7 +137,7 @@ export function ForecastDisplay({ req, forecast, loading, onChangeOptions } : {
                         labelFormatter={(t) => format(t, 'EEEE HH:mm')}
                         formatter={(forecast: number, name: string, { payload } : { payload: PossibleTime }) => [
                             <>
-                                <b>{showIndex(payload, intensityKey==='instIndex')}</b> ({payload.forecast?.toFixed(0)}g{showTotalCarbon ?
+                                {showIndex(payload, intensityKey)} ({payload.forecast?.toFixed(0)}g{showTotalCarbon ?
                                     <>) to run<br/>{req.what.singular} for {req.duration} minutes<br/><b>starting</b> at this time</> :
                                     <> per kWh)</>
                                 }
@@ -168,6 +171,23 @@ const getIntensityFill = (entry: PossibleTime, intensityKey: keyof PossibleTime)
             return '#E42217'
         case ForecastIndex.veryhigh:
             return '#800000'
+    }
+    // ???
+    return 'blue'
+}
+
+const getIntensityForeground = (entry: PossibleTime, intensityKey: keyof PossibleTime) => {
+    switch (entry[intensityKey]) {
+        case ForecastIndex.verylow:
+            return 'white'
+        case ForecastIndex.low:
+            return 'white'
+        case ForecastIndex.moderate:
+            return 'white'
+        case ForecastIndex.high:
+            return 'yellow'
+        case ForecastIndex.veryhigh:
+            return 'yellow'
     }
     // ???
     return 'blue'

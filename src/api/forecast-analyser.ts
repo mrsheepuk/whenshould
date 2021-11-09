@@ -60,7 +60,7 @@ export function analyseForecast(req: RunWhatRequest, forecast: Forecast): {
                 }
             })
             if (forecasts[RunWhenRange.Now] === null) {
-                fc.comparedToNow = 100
+                fc.comparedToNow = 0
                 // Always use the first forecast as the 'now'
                 forecasts[RunWhenRange.Now] = fc
             } else {
