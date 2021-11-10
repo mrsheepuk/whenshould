@@ -23,12 +23,16 @@ function App() {
   const [edit, setEdit] = useState<boolean>(false)
   const [showInfo, setShowInfo] = useState<'about'|'why'|null>(null)
   const [newVersionAvailable, setNewVersionAvailable] = useState<boolean|string>(false)
+  const [nextVersionCheck, setNextVersionCheck] = useState<number>(0)
 
   useEffect(() => {
+    if (new Date().getTime() < nextVersionCheck) {
+      console.log('not yet')
+      return
+    }
+    console.log('ok then')
     checkVersion()
-    const versionCheck = setInterval(checkVersion, VERSION_CHECK_MINUTES * 60 * 1000)
-    return () => clearInterval(versionCheck)
-  }, [])
+  })
 
   const checkVersion = async () => {
     try {
@@ -40,6 +44,7 @@ function App() {
     } catch {
       // Ignoring errors here, it won't hurt anything.
     }
+    setNextVersionCheck(new Date().getTime() + (VERSION_CHECK_MINUTES * 60 * 1000))
   }
 
   const load = async (req: RunWhatRequest) => {
