@@ -65,6 +65,8 @@ function App() {
     setLoading(false)
   }
 
+  const showForm = !req || edit || err
+
   return (
     <React.Fragment>
       <CssBaseline />
@@ -98,7 +100,7 @@ function App() {
             )}
           />
           <Grid container spacing={2}>
-            {!req || edit || err ? (
+            {showForm ? (
               <Grid item xs={12}>
                 <Typography variant='body1' component='p' paragraph={true}>
                   Find the lowest carbon time to run your dishwasher, charge your EV,
@@ -116,20 +118,22 @@ function App() {
                 ) : null}
               </Grid>
             ) : (
-              <Grid item xs={12}>
+              <>
+                <Grid item xs={12}>
+                  <ForecastDisplay req={req} forecast={forecast} loading={loading} onChangeOptions={() => setEdit(true)} />
+                </Grid>
+                <Grid item xs={12}>
                 {!loading ? (
                   <Button 
-                      sx={{ marginTop: '0.5em', width: '100%' }} 
+                      sx={{ width: '100%' }} 
                       variant='contained' 
                       onClick={() => setEdit(true)}>
                     Change options
                   </Button>
                 ) : null}
-              </Grid>
+                </Grid>
+              </>
             )}
-            <Grid item xs={12}>
-              <ForecastDisplay req={req} forecast={forecast} loading={loading} onChangeOptions={() => setEdit(true)} />
-            </Grid>
           </Grid>
         </main>
       </Container>
