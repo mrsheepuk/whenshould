@@ -27,10 +27,8 @@ function App() {
 
   useEffect(() => {
     if (new Date().getTime() < nextVersionCheck) {
-      console.log('not yet')
       return
     }
-    console.log('ok then')
     checkVersion()
   })
 
