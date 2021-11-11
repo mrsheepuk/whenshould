@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Alert, Button, ButtonGroup, FormControl, FormControlLabel, LinearProgress, Radio, RadioGroup, Typography, Tooltip as MUITooltip } from '@mui/material';
+import { Alert, Button, ButtonGroup, LinearProgress, Typography, Tooltip as MUITooltip, Paper } from '@mui/material';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Box } from '@mui/system';
 import { upperFirst } from 'lodash';
@@ -9,11 +9,10 @@ import { Forecast, ForecastIndex, PossibleTime } from '../api/forecast-types';
 import { explainRunWhen, getRunWhenHours, RunWhatRequest, RunWhenRange } from '../api/request-types';
 import { analyseForecast } from '../api/forecast-analyser';
 
-export function ForecastDisplay({ req, forecast, loading, onChangeOptions } : { 
+export function ForecastDisplay({ req, forecast, loading } : { 
     req?: RunWhatRequest, 
     forecast?: Forecast, 
     loading: boolean,
-    onChangeOptions: (req: RunWhatRequest) => void,
 }) {
     const [showTotalCarbon, setShowTotalCarbon] = useState<boolean>(false)
     const [graphRange, setGraphRange] = useState<RunWhenRange>(RunWhenRange.Whenever)
@@ -62,14 +61,12 @@ export function ForecastDisplay({ req, forecast, loading, onChangeOptions } : {
                     borderRight: '0',
                     display: 'inline-block',
                     padding: '0 0.5em',
-                    boxSizing: 'unset',
                     backgroundColor: getIntensityFill(fc, instind || 'index'), 
                     color: getIntensityForeground(fc, instind || 'index')
                 }}>{upperFirst(ind)}</span><span style={{ 
                     border: '1px solid #999',
                     borderLeft: '0',
                     display: 'inline-block', 
-                    boxSizing: 'unset',
                     padding: '0 0.5em' 
                 }}>{fcast.toFixed(0)}g/kWh</span></span>
         </>
@@ -87,11 +84,11 @@ export function ForecastDisplay({ req, forecast, loading, onChangeOptions } : {
                         <b>{format(best.from, 'EEEE HH:mm')}</b><br/>
                         {showIndex(best)}
                     </Typography>    
-                    <Typography variant='body1' component='p' paragraph={true}>
+                    <Typography variant='body1' component='p'>
                         This is the lowest emissions {best.totalCarbon ? <>(total: <MUITooltip title={<>Total estimated CO2 to run {req.what.owned} for {req.duration} minutes</>}><b>{best.totalCarbon.toFixed(0)}g</b></MUITooltip>)</> : null}
-                        {` `}during the {explainRunWhen(req.when)} for {forecast.postcode}
+                        {` `}in the {explainRunWhen(req.when)} for {forecast.postcode}
                     </Typography>
-                    </>
+                </>
             ) : (
                 <Typography variant='body1'>
                     Could not identify best period to use
@@ -99,58 +96,63 @@ export function ForecastDisplay({ req, forecast, loading, onChangeOptions } : {
             )}
 
             {overalBetter() && bestOverall && now ? (
-                <Alert severity='success' sx={{ marginTop: '1em', marginBottom: '1em', maxWidth: '60em', marginLeft: 'auto', marginRight: 'auto' }}>
-                    Save <b>{percentBetter(bestOverall, now).toFixed(0)}%</b> CO2 if you wait 
+                <Alert severity='success' sx={{ marginTop: '1em', maxWidth: '60em', marginLeft: 'auto', marginRight: 'auto' }}>
+                    Save <b>{percentBetter(bestOverall, now).toFixed(0)}%</b> if you wait 
                     {` `}until <b>{format(bestOverall.from, 'EEEE HH:mm')}</b> when the estimated 
                     carbon intensity drops to {showIndex(bestOverall)} {bestOverall.totalCarbon ? <> total: <b>{bestOverall.totalCarbon.toFixed(0)}g</b></> : null}
                 </Alert>
             ) : null}
 
-            <Box sx={{ height: '25vh'}}>
-            <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={all.filter((v) => v.inRange <= graphHrs)} barGap={0} barCategoryGap={0}>
-                    <Bar type="monotone" dataKey={graphDataKey} strokeWidth={0}>
-                        {all.map((entry, i) => (
-                            <Cell key={i} fill={getIntensityFill(entry, intensityKey)} opacity={entry.inRange <= runWhenHrs ? 1 : 0.7} />
-                        ))}
-                    </Bar>
-                    <CartesianGrid stroke="#ccc" strokeDasharray="2 5" />
-                    <XAxis dataKey="from" 
-                        tickFormatter={(t) => format(t, 'HH:mm')} 
-                        minTickGap={15} 
-                        interval={'preserveStart'} 
-                    />
-                    <YAxis unit='g' />
-                    <Tooltip
-                        labelFormatter={(t) => format(t, 'EEEE HH:mm')}
-                        formatter={(forecast: number, name: string, { payload } : { payload: PossibleTime }) => [
-                            <>
-                                {showIndex(payload, intensityKey)} {payload.totalCarbon ?
-                                    <><br/>{payload.totalCarbon.toFixed(0)}g total to run<br/>{req.what.singular} for {req.duration} minutes<br/><b>starting</b> at this time</> :
-                                    null
-                                }
-                            </>
-                        ]} 
-                    />
-                </BarChart>
-            </ResponsiveContainer>
-            </Box>
-            {req.power ? (
-                <FormControl component="fieldset" sx={{ marginRight: '1em' }}>
-                    <RadioGroup row aria-label="graph estimated" name="row-radio-buttons-group" 
-                            value={showTotalCarbon ? 'true' : 'false'} 
-                            onChange={(e) => setShowTotalCarbon(e.target.value==='true')}>
-                        <FormControlLabel value='false' control={<Radio />} label="g/kWh for every 30 minutes" />
-                        <FormControlLabel value='true' control={<Radio />} label={`Total CO2 to run ${req.what.owned}`} />
-                    </RadioGroup>
-                </FormControl>
-            ) : null}
-            <ButtonGroup variant='outlined'>
-                <Button onClick={() => setGraphRange(RunWhenRange.Next8h)} variant={graphRange !== RunWhenRange.Next8h ? 'outlined' : 'contained'}>8h</Button>
-                <Button onClick={() => setGraphRange(RunWhenRange.Next12h)} variant={graphRange !== RunWhenRange.Next12h ? 'outlined' : 'contained'}>12h</Button>
-                <Button onClick={() => setGraphRange(RunWhenRange.Next24h)} variant={graphRange !== RunWhenRange.Next24h ? 'outlined' : 'contained'}>24h</Button>
-                <Button onClick={() => setGraphRange(RunWhenRange.Whenever)} variant={graphRange !== RunWhenRange.Whenever ? 'outlined' : 'contained'}>48h</Button>
-            </ButtonGroup>
+            <Paper elevation={1} sx={{ marginTop: '1em', padding: '0.5em' }}>
+                <Box sx={{ height: '25vh' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={all.filter((v) => v.inRange <= graphHrs)} barGap={0} barCategoryGap={0}>
+                            <Bar type="monotone" dataKey={graphDataKey} strokeWidth={0}>
+                                {all.map((entry, i) => (
+                                    <Cell key={i} fill={getIntensityFill(entry, intensityKey)} opacity={entry.inRange <= runWhenHrs ? 1 : 1} strokeWidth={0} />
+                                ))}
+                            </Bar>
+                            <CartesianGrid stroke="#ccc" strokeDasharray="2 5" />
+                            <XAxis dataKey="from" 
+                                tickFormatter={(t) => format(t, 'HH:mm')} 
+                                minTickGap={15} 
+                                interval={'preserveStart'} 
+                            />
+                            <YAxis unit='g' />
+                            <Tooltip
+                                labelFormatter={(t) => format(t, 'EEEE HH:mm')}
+                                formatter={(forecast: number, name: string, { payload } : { payload: PossibleTime }) => [
+                                    <>
+                                        {showIndex(payload, intensityKey)} {payload.totalCarbon ?
+                                            <><br/>{payload.totalCarbon.toFixed(0)}g total to run<br/>{req.what.singular} for {req.duration} minutes<br/><b>starting</b> at this time</> :
+                                            null
+                                        }
+                                    </>
+                                ]} 
+                            />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </Box>
+                <ButtonGroup size='small' variant='text'>
+                    <Button onClick={() => setGraphRange(RunWhenRange.Next8h)} variant={graphRange !== RunWhenRange.Next8h ? undefined : 'contained'}>8h</Button>
+                    <Button onClick={() => setGraphRange(RunWhenRange.Next12h)} variant={graphRange !== RunWhenRange.Next12h ? undefined : 'contained'}>12h</Button>
+                    <Button onClick={() => setGraphRange(RunWhenRange.Next24h)} variant={graphRange !== RunWhenRange.Next24h ? undefined : 'contained'}>24h</Button>
+                    <Button onClick={() => setGraphRange(RunWhenRange.Whenever)} variant={graphRange !== RunWhenRange.Whenever ? undefined : 'contained'}>48h</Button>
+                </ButtonGroup>
+                {req.power ? (
+                    <>
+                        <br/>
+                        <ButtonGroup size='small' variant='text' sx={{ marginTop: '1em' }}>
+                            <Button onClick={() => setShowTotalCarbon(false)} variant={showTotalCarbon ? undefined : 'contained'}>CO2 per kWh</Button>
+                            <MUITooltip title={<>Total estimated CO2 to run {req.what.owned} for {req.duration} minutes</>}>                              
+                                <Button onClick={() => setShowTotalCarbon(true)} variant={!showTotalCarbon ? undefined : 'contained'}>
+                                    Total CO2 to run {req.what.name}
+                                </Button>
+                            </MUITooltip>
+                        </ButtonGroup>
+                    </>
+                ) : null}
+            </Paper>
         </>
     )
 }
