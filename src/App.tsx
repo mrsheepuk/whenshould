@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Button, Container, Grid, Toolbar, Alert, AlertTitle, Typography, Link, Snackbar } from '@mui/material'
+import { Button, Container, Grid, Toolbar, Alert, AlertTitle, Typography, Link, Snackbar, ThemeProvider } from '@mui/material'
+import { createTheme } from '@mui/material/styles';
 
 import './App.css';
 import Logo from './leaf.svg';
@@ -14,6 +15,14 @@ import { WhyDialog } from './components/WhyDialog';
 import { VERSION } from './version';
 
 const VERSION_CHECK_MINUTES = 60
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#3EA055'
+    }
+  },
+});
+
 
 function App() {
   const [loading, setLoading] = useState<boolean>(false)
@@ -71,11 +80,11 @@ function App() {
   const showForm = !req || edit || err
 
   return (
-    <React.Fragment>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
       <Container maxWidth="lg" sx={{ textAlign: 'center' }}>
         <header>
-          <Toolbar sx={{ borderBottom: '1px solid #ccc', marginBottom: '1vh' }}>
+          <Toolbar sx={{ borderBottom: '1px solid #ccc', marginBottom: '1vh', backgroundColor: 'white' }}>
             <img className='logo' src={Logo} alt="When to..." />
             <Typography
               component="h1"
@@ -123,7 +132,7 @@ function App() {
             ) : (
               <>
                 <Grid item xs={12}>
-                  <ForecastDisplay req={req} forecast={forecast} loading={loading} onChangeOptions={() => setEdit(true)} />
+                  <ForecastDisplay req={req} forecast={forecast} loading={loading} />
                 </Grid>
                 <Grid item xs={12}>
                 {!loading ? (
@@ -131,7 +140,7 @@ function App() {
                       sx={{ width: '100%' }} 
                       variant='contained' 
                       onClick={() => setEdit(true)}>
-                    Change options
+                    Start again
                   </Button>
                 ) : null}
                 </Grid>
@@ -140,7 +149,7 @@ function App() {
           </Grid>
         </main>
       </Container>
-    </React.Fragment>
+    </ThemeProvider>
   );
 }
 
