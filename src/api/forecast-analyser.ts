@@ -1,6 +1,6 @@
 import { parseISO, differenceInMinutes, addHours } from "date-fns";
 
-import { Forecast, ForecastIndex, PossibleTime, TimeForecast } from "./forecast-types";
+import { Forecast, ForecastIndex, GenSource, PossibleTime, TimeForecast } from "./forecast-types";
 import { getRunWhenHours, RunWhatRequest, RunWhenRange } from "./request-types";
 
 const NO_FORECAST = 999999
@@ -37,6 +37,7 @@ export function analyseForecast(req: RunWhatRequest, forecast: Forecast): {
             instTo: to,
             instForecast: tf.intensity.forecast,
             instIndex: tf.intensity.index,
+            instGenMix: tf.generationmix,
             inRange: getRunWhenHours(RunWhenRange.Whenever)
         };
 
@@ -50,6 +51,7 @@ export function analyseForecast(req: RunWhatRequest, forecast: Forecast): {
             fc.forecast = calc.forecast 
             fc.to = calc.endTime
             fc.index = getIndex(calc.forecast)
+            fc.genMix = calc.genMix
             if (req.power) {
                 fc.totalCarbon = fc.forecast * (((req.power) / 1000) * (req.duration / 60))
             }
@@ -73,17 +75,21 @@ export function analyseForecast(req: RunWhatRequest, forecast: Forecast): {
     return { forecasts, all }
 }
 
-function calcCurrentWindow(possible: TimeForecast[], startIndex: number, reqDurationMins: number): { forecast: number, endTime: Date } | null {
+function calcCurrentWindow(possible: TimeForecast[], startIndex: number, reqDurationMins: number): { forecast: number, endTime: Date, genMix: GenSource[] } | null {
     let carbonSum = 0
+    let minutesFound = 0
     let minutesLeft = reqDurationMins
+    let genMix: GenSource[] = []
     for (let x = startIndex; x < possible.length; x++) {
         const blockDuration = differenceInMinutes(parseISO(possible[x].to), parseISO(possible[x].from))
         const blockIntensityPerMinute = (possible[x].intensity.forecast / 60)
+        genMix = addBlockMix(genMix, possible[x], blockDuration, minutesFound)
 
         if (blockDuration >= minutesLeft) {
             carbonSum += blockIntensityPerMinute * minutesLeft
-            // Convert back to g/kwh
             return { 
+                genMix: genMix,
+                // Convert back to g/kwh
                 forecast: (carbonSum / reqDurationMins) * 60, 
                 endTime: parseISO(possible[x].to) 
             }
@@ -91,9 +97,23 @@ function calcCurrentWindow(possible: TimeForecast[], startIndex: number, reqDura
 
         carbonSum += blockIntensityPerMinute * blockDuration
         minutesLeft = minutesLeft - blockDuration
+        minutesFound = reqDurationMins - minutesLeft
     }
     // If we ran out of time, this isn't valid.
     return null
+}
+
+function addBlockMix(genMix: GenSource[], possible: TimeForecast, blockDuration: number, minutesFound: number): GenSource[] {
+    if (!genMix || genMix.length === 0) {
+        return [...possible.generationmix]
+    }
+    return [...genMix.map((egs) => {
+        const g = possible.generationmix.find((gs) => gs.fuel === egs.fuel)
+        if (g) {
+            return {...egs, perc: ((((egs.perc/100) * minutesFound) + ((g.perc/100) * blockDuration)) / (minutesFound + blockDuration) * 100)}
+        }
+        return {...egs, perc: (((egs.perc/100) * minutesFound) / (minutesFound + blockDuration)) * 100}
+    })]
 }
 
 const indexes: Record<string,Record<ForecastIndex,number>> = {    

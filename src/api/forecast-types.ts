@@ -34,10 +34,12 @@ export class PossibleTime {
   instTo: Date
   instForecast: number
   instIndex: ForecastIndex
+  instGenMix: GenSource[]
   inRange: number
 
   to?: Date
   forecast?: number
+  genMix?: GenSource[]
   index?: ForecastIndex
   totalCarbon?: number
   comparedToNow?: number

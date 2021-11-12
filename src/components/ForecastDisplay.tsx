@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Alert, Button, ButtonGroup, LinearProgress, Typography, Tooltip as MUITooltip, Paper } from '@mui/material';
+import { Alert, Button, ButtonGroup, LinearProgress, Typography, Tooltip as MUITooltip, Paper, Link, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Box } from '@mui/system';
 import { upperFirst } from 'lodash';
@@ -16,6 +16,7 @@ export function ForecastDisplay({ req, forecast, loading } : {
 }) {
     const [showTotalCarbon, setShowTotalCarbon] = useState<boolean>(false)
     const [graphRange, setGraphRange] = useState<RunWhenRange>(RunWhenRange.Whenever)
+    const [showForecastMix, setShowForecastMix] = useState<{pt: PossibleTime, inst: boolean}|null>(null)
 
     if (loading) {
         return (
@@ -49,9 +50,9 @@ export function ForecastDisplay({ req, forecast, loading } : {
         return 100 - (((a?.forecast || 1) / (b?.forecast || 1)) * 100)
     }
 
-    const showIndex = (fc: PossibleTime, instind?: keyof PossibleTime, forecastind?: keyof PossibleTime) => {
-        const ind = (instind ? fc[instind] : fc.index) as ForecastIndex
-        const fcast = (forecastind ? fc[forecastind] : fc.forecast) as number
+    const showIndex = (fc: PossibleTime, inst?: boolean, disableFM?: boolean) => {
+        const ind = (inst ? fc.instIndex : fc.index) as ForecastIndex
+        const fcast = (inst ? fc.instForecast : fc.forecast) as number
         if (ind === undefined || fcast === undefined) {
             return null
         }
@@ -61,19 +62,55 @@ export function ForecastDisplay({ req, forecast, loading } : {
                     borderRight: '0',
                     display: 'inline-block',
                     padding: '0 0.5em',
-                    backgroundColor: getIntensityFill(fc, instind || 'index'), 
-                    color: getIntensityForeground(fc, instind || 'index')
+                    backgroundColor: getIntensityFill(fc, inst ? 'instIndex' : 'index'), 
+                    color: getIntensityForeground(fc, inst ? 'instIndex' : 'index')
                 }}>{upperFirst(ind)}</span><span style={{ 
                     border: '1px solid #999',
                     borderLeft: '0',
                     display: 'inline-block', 
                     padding: '0 0.5em' 
-                }}>{fcast.toFixed(0)}g/kWh</span></span>
+                }}>
+                    {!disableFM ? (
+                        <Link sx={{ cursor: 'pointer' }} color='#000' onClick={() => setShowForecastMix({pt: fc, inst: inst===true})}>{fcast.toFixed(0)}g/kWh</Link> 
+                    ) : (
+                        <>{fcast.toFixed(0)}g/kWh</>
+                    )}
+                </span></span>
         </>
     }
 
+    const fcMix = showForecastMix?.inst ? showForecastMix.pt.instGenMix : showForecastMix?.pt?.genMix
+
     return (
         <>
+            <Dialog open={showForecastMix !== null} onClose={() => setShowForecastMix(null)}>
+                <DialogTitle>Estimated generation mix</DialogTitle>
+                <DialogContent>
+                    <Table size='small'>
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>Source</TableCell>
+                                <TableCell>Percentage</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {fcMix?.filter((s) => s.perc > 0.1).sort((a, b) => b.perc - a.perc).map((s, i) => 
+                                <TableRow key={i}>
+                                    <TableCell>{upperFirst(s.fuel)}</TableCell>
+                                    <TableCell>{s.perc.toFixed(1)}%</TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                    {/* {fcMix?.filter((s) => s.perc > 0.1).sort((a, b) => b.perc - a.perc).map((s, i) => <Typography key={i} variant='subtitle2'>{upperFirst(s.fuel)}: {s.perc.toFixed(1)}%</Typography>)} */}
+                </DialogContent>
+                <DialogActions>
+                    <Button autoFocus onClick={() => setShowForecastMix(null)}>
+                        OK
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
             {best && now ? (
                 <>
                     <Typography variant='body1' component='p' paragraph={true}>
@@ -120,10 +157,11 @@ export function ForecastDisplay({ req, forecast, loading } : {
                             />
                             <YAxis unit='g' />
                             <Tooltip
+                                wrapperStyle={{ zIndex: 10000 }}
                                 labelFormatter={(t) => format(t, 'EEEE HH:mm')}
                                 formatter={(forecast: number, name: string, { payload } : { payload: PossibleTime }) => [
                                     <>
-                                        {showIndex(payload, intensityKey)} {payload.totalCarbon ?
+                                        {showIndex(payload, intensityKey === 'instIndex', true)} {payload.totalCarbon ?
                                             <><br/>{payload.totalCarbon.toFixed(0)}g total to run<br/>{req.what.singular} for {req.duration} minutes<br/><b>starting</b> at this time</> :
                                             null
                                         }
