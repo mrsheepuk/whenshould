@@ -143,7 +143,7 @@ export function ForecastDisplay({ req, forecast, loading } : {
             <Paper elevation={1} sx={{ marginTop: '1em', padding: '0.5em' }}>
                 <Box sx={{ height: '25vh' }}>
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={all.filter((v) => v.inRange <= graphHrs)} barGap={0} barCategoryGap={0}>
+                        <BarChart data={all.filter((v) => v.inRange <= graphHrs)} barGap={0} barCategoryGap={-0.5}>
                             <Bar type="monotone" dataKey={graphDataKey} strokeWidth={0}>
                                 {all.map((entry, i) => (
                                     <Cell key={i} fill={getIntensityFill(entry, intensityKey)} opacity={entry.inRange <= runWhenHrs ? 1 : 1} strokeWidth={0} />
@@ -157,7 +157,6 @@ export function ForecastDisplay({ req, forecast, loading } : {
                             />
                             <YAxis unit='g' />
                             <Tooltip
-                                wrapperStyle={{ zIndex: 10000 }}
                                 labelFormatter={(t) => format(t, 'EEEE HH:mm')}
                                 formatter={(forecast: number, name: string, { payload } : { payload: PossibleTime }) => [
                                     <>
