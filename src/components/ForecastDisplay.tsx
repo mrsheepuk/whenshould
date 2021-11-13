@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { Alert, Button, ButtonGroup, LinearProgress, Typography, Tooltip as MUITooltip, Paper, Link, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableHead, TableRow, TableCell, TableBody } from '@mui/material';
+import { InfoOutlined } from '@mui/icons-material';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Box } from '@mui/system';
 import { upperFirst } from 'lodash';
-
 import { Forecast, ForecastIndex, PossibleTime } from '../api/forecast-types';
 import { explainRunWhen, getRunWhenHours, RunWhatRequest, RunWhenRange } from '../api/request-types';
 import { analyseForecast } from '../api/forecast-analyser';
@@ -16,6 +16,7 @@ export function ForecastDisplay({ req, forecast, loading } : {
 }) {
     const [showTotalCarbon, setShowTotalCarbon] = useState<boolean>(false)
     const [graphRange, setGraphRange] = useState<RunWhenRange>(RunWhenRange.Whenever)
+    const [showForecastVisible, setShowForecastVisible] = useState<boolean>(false)
     const [showForecastMix, setShowForecastMix] = useState<{pt: PossibleTime, inst: boolean}|null>(null)
 
     if (loading) {
@@ -40,6 +41,11 @@ export function ForecastDisplay({ req, forecast, loading } : {
     const runWhenHrs = getRunWhenHours(req.when)
     const graphHrs = getRunWhenHours(graphRange)
 
+    const showMix = (pt: PossibleTime, inst?: boolean) => {
+        setShowForecastMix({ pt, inst: inst === true })
+        setShowForecastVisible(true)
+    }
+
     const overalBetter = () => {
         return bestOverall && best && 
             bestOverall.from !== best.from && 
@@ -62,16 +68,16 @@ export function ForecastDisplay({ req, forecast, loading } : {
                     borderRight: '0',
                     display: 'inline-block',
                     padding: '0 0.5em',
-                    backgroundColor: getIntensityFill(fc, inst ? 'instIndex' : 'index'), 
+                    backgroundColor: getIntensityFill(fc, inst ? 'instIndex' : 'index'),
                     color: getIntensityForeground(fc, inst ? 'instIndex' : 'index')
                 }}>{upperFirst(ind)}</span><span style={{ 
                     border: '1px solid #999',
                     borderLeft: '0',
                     display: 'inline-block', 
-                    padding: '0 0.5em' 
+                    padding: '0 0.3em 0 0.5em' 
                 }}>
                     {!disableFM ? (
-                        <Link sx={{ cursor: 'pointer' }} color='#000' onClick={() => setShowForecastMix({pt: fc, inst: inst===true})}>{fcast.toFixed(0)}g/kWh</Link> 
+                        <Link underline='none' sx={{ cursor: 'pointer' }} color='#000' onClick={() => showMix(fc, inst===true)}>{fcast.toFixed(0)}g/kWh <InfoOutlined sx={{ paddingTop: '0.25em' }} fontSize='inherit' /></Link> 
                     ) : (
                         <>{fcast.toFixed(0)}g/kWh</>
                     )}
@@ -83,29 +89,33 @@ export function ForecastDisplay({ req, forecast, loading } : {
 
     return (
         <>
-            <Dialog open={showForecastMix !== null} onClose={() => setShowForecastMix(null)}>
-                <DialogTitle>Estimated generation mix</DialogTitle>
+            <Dialog open={showForecastVisible} onClose={() => setShowForecastVisible(false)}>
+                <DialogTitle>Power generation mix</DialogTitle>
                 <DialogContent>
-                    <Table size='small'>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>Source</TableCell>
-                                <TableCell>Percentage</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {fcMix?.filter((s) => s.perc > 0.1).sort((a, b) => b.perc - a.perc).map((s, i) => 
-                                <TableRow key={i}>
-                                    <TableCell>{upperFirst(s.fuel)}</TableCell>
-                                    <TableCell>{s.perc.toFixed(1)}%</TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                    {/* {fcMix?.filter((s) => s.perc > 0.1).sort((a, b) => b.perc - a.perc).map((s, i) => <Typography key={i} variant='subtitle2'>{upperFirst(s.fuel)}: {s.perc.toFixed(1)}%</Typography>)} */}
+                    {showForecastMix ? (
+                        <>
+                            <Typography variant='body2' paragraph={true} sx={{ textAlign: 'center' }}>
+                                {showIndex(showForecastMix.pt, false, true)}
+                            </Typography>
+                            <Typography variant='body2' paragraph={true}>
+                                Estimated mix of power generation sources for {forecast.postcode} from {format(showForecastMix?.pt.from || new Date(), 'EEEE HH:mm')}
+                                {!showForecastMix?.inst ? <> for a {req.duration}min duration</> : <></>}:
+                            </Typography>
+                            <Table size='small'>
+                                <TableBody>
+                                    {fcMix?.filter((s) => s.perc > 0.1).sort((a, b) => b.perc - a.perc).map((s, i) => 
+                                        <TableRow key={i}>
+                                            <TableCell>{upperFirst(s.fuel)}</TableCell>
+                                            <TableCell>{s.perc.toFixed(1)}%</TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </>
+                    ) : null }
                 </DialogContent>
                 <DialogActions>
-                    <Button autoFocus onClick={() => setShowForecastMix(null)}>
+                    <Button autoFocus onClick={() => setShowForecastVisible(false)}>
                         OK
                     </Button>
                 </DialogActions>
@@ -114,16 +124,16 @@ export function ForecastDisplay({ req, forecast, loading } : {
             {best && now ? (
                 <>
                     <Typography variant='body1' component='p' paragraph={true}>
-                        CO2 emissions are currently {showIndex(now)}<br/>
-                        Save <b>{best.comparedToNow?.toFixed(0)}%</b> by starting {req.what.owned} at:
+                        Start {req.what.owned} at
                     </Typography>    
                     <Typography variant='h5' component='p' paragraph={true}>
                         <b>{format(best.from, 'EEEE HH:mm')}</b><br/>
                         {showIndex(best)}
                     </Typography>    
-                    <Typography variant='body1' component='p'>
-                        This is the lowest emissions {best.totalCarbon ? <>(total: <MUITooltip title={<>Total estimated CO2 to run {req.what.owned} for {req.duration} minutes</>}><b>{best.totalCarbon.toFixed(0)}g</b></MUITooltip>)</> : null}
-                        {` `}in the {explainRunWhen(req.when)} for {forecast.postcode}
+                    <Typography variant='body2' component='p'>
+                        for the lowest CO2 emissions {best.totalCarbon ? <>(total: <MUITooltip title={<>Total estimated CO2 to run {req.what.owned} for {req.duration} minutes</>}><b>{best.totalCarbon.toFixed(0)}g</b></MUITooltip>)</> : null}
+                        {` `}in the {explainRunWhen(req.when)}, saving 
+                        {` `}<b>{best.comparedToNow?.toFixed(0)}%</b> compared to now: {showIndex(now)}
                     </Typography>
                 </>
             ) : (
