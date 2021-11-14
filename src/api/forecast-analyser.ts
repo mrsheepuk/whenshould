@@ -5,6 +5,15 @@ import { getRunWhenHours, RunWhatRequest, RunWhenRange } from "./request-types";
 
 const NO_FORECAST = 999999
 
+// We add a linear scale factor to each prediction going into the future to account for
+// the lower confidence and lower convenience about that prediction 
+const FUTURE_DISCOUNT = 1.002
+
+// Percentage above best to classify as best, ok and not bad:
+const BEST_BAND_PCT = 25
+const OK_BAND_PCT = 50
+const NOT_BAD_BAND_PCT = 75
+
 export type Forecasts = {[key in RunWhenRange]: (PossibleTime | null)}
 
 export interface ForecastAnalysis {
@@ -30,8 +39,11 @@ export function analyseForecast(req: RunWhatRequest, forecast: Forecast): Foreca
     }
     let all: PossibleTime[] = []
 
+    let adjust = 1
     forecast.data.forEach((tf, ind) => {
         const calc = calcCurrentWindow(forecast.data, ind, req.duration)
+        if (!calc) return
+
         const from = parseISO(tf.from)
         const to = parseISO(tf.to)
         const fc: PossibleTime = { 
@@ -40,7 +52,12 @@ export function analyseForecast(req: RunWhatRequest, forecast: Forecast): Foreca
             instForecast: tf.intensity.forecast,
             instIndex: tf.intensity.index,
             instGenMix: tf.generationmix,
-            inRange: getRunWhenHours(RunWhenRange.Whenever)
+            inRange: getRunWhenHours(RunWhenRange.Whenever),
+            forecast: calc.forecast,
+            weightedForecast: calc.forecast * adjust,
+            to: calc.endTime,
+            index: getIndex(calc.forecast),
+            genMix: calc.genMix
         };
 
         [RunWhenRange.Next24h, RunWhenRange.Next12h, RunWhenRange.Next8h].forEach((range) => {
@@ -49,30 +66,46 @@ export function analyseForecast(req: RunWhatRequest, forecast: Forecast): Foreca
             }
         })
 
-        if (calc) {
-            fc.forecast = calc.forecast 
-            fc.to = calc.endTime
-            fc.index = getIndex(calc.forecast)
-            fc.genMix = calc.genMix
-            if (req.power) {
-                fc.totalCarbon = fc.forecast * (((req.power) / 1000) * (req.duration / 60))
-            }
-            
-            [RunWhenRange.Next8h, RunWhenRange.Next12h, RunWhenRange.Next24h, RunWhenRange.Whenever].forEach((range) => {
-                if (fc.inRange <= getRunWhenHours(range) && (!forecasts[range] || calc.forecast < (forecasts[range]?.forecast || NO_FORECAST))) {
-                    forecasts[range] = fc
-                }
-            })
-            if (forecasts[RunWhenRange.Now] === null) {
-                fc.comparedToNow = 0
-                // Always use the first forecast as the 'now'
-                forecasts[RunWhenRange.Now] = fc
-            } else {
-                fc.comparedToNow = 100 - (((fc.forecast || 1) / (forecasts[RunWhenRange.Now]?.forecast || 1)) * 100)
-            }
+        if (req.power) {
+            fc.totalCarbon = fc.forecast * (((req.power) / 1000) * (req.duration / 60))
         }
+        
+        [RunWhenRange.Next8h, RunWhenRange.Next12h, RunWhenRange.Next24h, RunWhenRange.Whenever].forEach((range) => {
+            if (fc.inRange <= getRunWhenHours(range) && (!forecasts[range] || calc.forecast < (forecasts[range]?.forecast || NO_FORECAST))) {
+                forecasts[range] = fc
+            }
+        })
+
+        if (forecasts[RunWhenRange.Now] === null) {
+            fc.comparedToNow = 0
+            // Always use the first forecast as the 'now'
+            forecasts[RunWhenRange.Now] = fc
+        } else {
+            fc.comparedToNow = 100 - ((fc.forecast / (forecasts[RunWhenRange.Now]?.forecast || 1)) * 100)
+        }
+
+        adjust = adjust * FUTURE_DISCOUNT
         all.push(fc)
     });
+
+    // using the best overall as our starting point (assuming we have one), we now 
+    // apply a banding to all results based on how close they are to the best
+    const bestOverall = forecasts[RunWhenRange.Whenever]
+    if (bestOverall) {
+        all.forEach((fc, i) => {
+            const comparedToBest = (((fc.weightedForecast || fc.instForecast) / (bestOverall.weightedForecast || bestOverall.instForecast)) * 100) - 100
+            if (comparedToBest < (BEST_BAND_PCT)) {
+                all[i].band = 'best'
+            } else if (comparedToBest < (OK_BAND_PCT)) {
+                all[i].band = 'ok'
+            } else if (comparedToBest < (NOT_BAD_BAND_PCT)) {
+                all[i].band = 'notbad'
+            } else {
+                all[i].band = 'avoid'
+            }
+            all[i].comparedToBest = comparedToBest
+        })
+    }
 
     return { forecasts, all }
 }

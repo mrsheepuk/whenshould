@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { Alert, Button, ButtonGroup, LinearProgress, Typography, Tooltip as MUITooltip, Paper, Link, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableRow, TableCell, TableBody, Grid } from '@mui/material';
-import { InfoOutlined, SkipNext, SkipPrevious, ArrowUpward, ArrowDownward } from '@mui/icons-material';
+import { Alert, Button, ButtonGroup, LinearProgress, Typography, Tooltip as MUITooltip, Paper, Link, Dialog, DialogContent, DialogActions, Table, TableRow, TableCell, TableBody, Grid } from '@mui/material';
+import { InfoOutlined, ArrowUpward, ArrowDownward, ArrowBack, ArrowForward } from '@mui/icons-material';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { Box } from '@mui/system';
 import { upperFirst } from 'lodash';
@@ -81,7 +81,7 @@ export function ForecastDisplay({ req, forecast, loading } : {
         return 100 - (((a?.forecast || 1) / (b?.forecast || 1)) * 100)
     }
 
-    const showIndex = (fc: PossibleTime, { inst, disableFM } : { inst?: boolean, disableFM?: boolean }) => {
+    const showIndex = (fc: PossibleTime, { inst, disableFM, hideTime } : { inst?: boolean, disableFM?: boolean, hideTime?: boolean }) => {
         const ind = (inst ? fc.instIndex : fc.index) as ForecastIndex
         const fcast = (inst ? fc.instForecast : fc.forecast) as number
         const ncast = (inst ? now?.instForecast || 0 : now?.forecast || 0)
@@ -90,80 +90,91 @@ export function ForecastDisplay({ req, forecast, loading } : {
         }
         return <>
             <Link underline='none' sx={{ cursor: 'pointer' }} color='#000' onClick={() => disableFM ? null : showMix(fc, inst===true)}>
-                <span style={{ whiteSpace: 'nowrap', display: 'inline-block' }}>
-                    <span style={{ 
+                <div style={{ whiteSpace: 'nowrap', width: '10em', display: 'inline-block' }}>
+                    {!hideTime ? (
+                        <div style={{ 
+                            border: '1px solid #999',
+                            borderBottom: '0',
+                            width: '100%',
+                            padding: '0 0.5em',
+                        }}>
+                            <Typography variant='h6'>{format(fc.from, 'EEE HH:mm')}</Typography>
+                        </div>
+                    ) : null}
+                    <div style={{ 
                         border: '1px solid #999',
-                        borderRight: '0',
-                        display: 'inline-block',
+                        borderBottom: '0',
+                        width: '100%',
                         padding: '0 0.5em',
-                        minWidth: '4.5em',
                         backgroundColor: getIntensityFill(fc, inst ? 'instIndex' : 'index'),
                         color: getIntensityForeground(fc, inst ? 'instIndex' : 'index')
                     }}>
-                        {upperFirst(ind)}
-                    </span>
-                    <span style={{ 
+                        <Typography variant='h6'>{upperFirst(ind)}</Typography>
+                    </div>
+                    <div style={{ 
                         border: '1px solid #999',
-                        borderLeft: '0',
-                        display: 'inline-block', 
-                        padding: '0 0.5em 0 0.5em' 
+                        borderBottom: '0',
+                        width: '100%',
+                        padding: '0 0.5em' 
                     }}>
                         <>{fcast.toFixed(0)}g/kWh{!disableFM ? <> <InfoOutlined sx={{ paddingTop: '0.25em', marginRight: '-0.2em' }} fontSize='inherit' /></> : null}</>
-                    </span>
-                    {fc.totalCarbon !== undefined || fcast !== ncast ? (
-                        <>
-                            <br/>
-                            <span style={{ 
-                                border: '1px solid #999',
-                                borderTop: '0',
-                                width: '100%',
-                                display: 'inline-block', 
-                                padding: '0 0.5em 0 0.5em' 
-                            }}>
-                                {fc.totalCarbon !== undefined ? (
-                                <MUITooltip title={<>Total estimated CO2 to run {req.what.owned} for {req.duration} minutes</>}><>{fc.totalCarbon.toFixed(0)}g total</></MUITooltip>
-                                ) : null}
-                                {fcast !== ncast ? (<>
-                                    {` `}{fcast > ncast ? <ArrowUpward sx={{ paddingTop: '0.25em', marginLeft: '0.2em' }} fontSize='inherit' /> : <ArrowDownward sx={{ paddingTop: '0.25em', marginLeft: '0.2em' }} fontSize='inherit'  />}{Math.abs(fc.comparedToNow || 0).toFixed(0)}%
-                                </>) : null}
-                            </span>
-                        </>
-                ) : null}
-                </span>
+                    </div>
+                    <div style={{ 
+                        border: '1px solid #999',
+                        borderTop: '0',
+                        width: '100%',
+                        padding: '0 0.5em' 
+                    }}>
+                        {fc.totalCarbon !== undefined ? (
+                        <MUITooltip title={<>Total estimated CO2 to run {req.what.owned} for {req.duration} minutes</>}>
+                            <><b>{fc.totalCarbon >= 1000 ? <>{(fc.totalCarbon / 1000).toFixed(2)}kg</> : <>{fc.totalCarbon.toFixed(0)}g</>} total</b></>
+                        </MUITooltip>
+                        ) : null}
+                        <br/>
+                        {fcast !== ncast ? (<>
+                            {fcast > ncast ? <ArrowUpward sx={{ paddingTop: '0.25em' }} fontSize='inherit' /> : <ArrowDownward sx={{ paddingTop: '0.25em' }} fontSize='inherit'  />}
+                            {Math.abs(fc.comparedToNow || 0).toFixed(0)}%
+                            {` `}{fcast > ncast ? 'above' : 'below'} now
+                        </>) : <><ArrowUpward sx={{ paddingTop: '0.25em' }} fontSize='inherit' /> {fc.comparedToBest?.toFixed(0)}% above best</>}
+                        {/* <br/>
+                        {fc.band} - {fc.comparedToBest?.toFixed(0)}% - {fc.weightedForecast?.toFixed(0)}w-g */}
+                    </div>
+                </div>
             </Link>
         </>
     }
 
     const fcMix = showForecastMix?.inst ? showForecastMix.pt.instGenMix : showForecastMix?.pt?.genMix
-    const graphData = all.filter((v) => v.inRange <= graphHrs)
+    const graphData = all.filter((v) => v.inRange <= graphHrs && v.forecast !== undefined)
 
     return (
         <>
             <Dialog open={showForecastVisible} onClose={() => setShowForecastVisible(false)}>
-                <DialogTitle>{format(showForecastMix?.pt.from || new Date(), 'EEEE HH:mm')} in {forecast.postcode}</DialogTitle>
-                <DialogContent>
-                    {showForecastMix ? (
-                        <>
-                            <Typography variant='body2' paragraph={true} sx={{ textAlign: 'center' }}>
-                                {showIndex(showForecastMix.pt, { disableFM: true })}
-                            </Typography>
-                            <Typography variant='body2' paragraph={true}>
-                                Estimated power generation sources {!showForecastMix?.inst ? <> for a {req.duration}min duration from </> : <>at </>}
-                                {format(showForecastMix?.pt.from || new Date(), 'EEE HH:mm')}:
-                            </Typography>
-                            <Table size='small'>
-                                <TableBody>
-                                    {fcMix?.filter((s) => s.perc > 0.1).sort((a, b) => b.perc - a.perc).map((s, i) => 
-                                        <TableRow key={i}>
-                                            <TableCell>{upperFirst(s.fuel)}</TableCell>
-                                            <TableCell>{s.perc.toFixed(1)}%</TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </>
-                    ) : null }
-                </DialogContent>
+                {showForecastMix ? (<>
+                    <DialogContent>
+                        {showForecastMix ? (
+                            <>
+                                <Typography variant='body2' paragraph={true}>
+                                    {!showForecastMix?.inst ? <>Average impact to run {req.what.singular} for {req.duration} minutes <b>starting at</b></> : <>Details at</>}
+                                    {` `}<b>{format(showForecastMix.pt.from, 'EEE HH:mm')}</b> in {forecast.postcode}:
+                                </Typography>
+                                <Typography variant='body2' paragraph={true} sx={{ textAlign: 'center' }}>
+                                    {showIndex(showForecastMix.pt, { disableFM: true, hideTime: true })}
+                                </Typography>
+                                <Table size='small'>
+                                    <TableBody>
+                                        {fcMix?.filter((s) => s.perc > 0.1).sort((a, b) => b.perc - a.perc).map((s, i) => 
+                                            <TableRow key={i}>
+                                                <TableCell>{upperFirst(s.fuel)}</TableCell>
+                                                <TableCell>{s.perc.toFixed(1)}%</TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </>
+                        ) : null }
+                    </DialogContent>
+                </>) : null}
                 <DialogActions>
                     <Button autoFocus onClick={() => setShowForecastVisible(false)}>
                         OK
@@ -171,30 +182,32 @@ export function ForecastDisplay({ req, forecast, loading } : {
                 </DialogActions>
             </Dialog>
 
-            {curr && now ? (
+            {curr && now && bestOverall ? (
                 <>
-                    <Grid container spacing={0} columns={12}>
-                        <Grid item xs={3}><Button size='small' variant='text' disabled={!prevAvail} onClick={() => prev()} sx={{ height: '100%' }}><SkipPrevious /></Button></Grid>
-                        <Grid item xs={3}><Button size='small' variant={curr.from===now.from ? 'contained' : 'text'} onClick={() => setCurr(now)} sx={{ height: '100%' }}>Now</Button></Grid>
-                        <Grid item xs={3}><Button size='small' variant={curr.from===best?.from ? 'contained' : 'text'} onClick={() => setCurr(best)} sx={{ height: '100%' }}>Best</Button></Grid>
-                        <Grid item xs={3}><Button size='small' variant='text' disabled={!nextAvail} onClick={() => next()} sx={{ height: '100%' }}><SkipNext /></Button></Grid>
-                    </Grid>
                     <Typography variant='body1' component='p' paragraph={true}>
                         Start {req.what.owned} at
                     </Typography>
-                    <Typography variant='h5' component='p' paragraph={true}>
-                        <b>{format(curr.from, 'EEEE HH:mm')}</b><br/>
-                        {showIndex(curr, { })}
-                    </Typography>
-                    <Typography variant='body2' component='p'>
+                    {showIndex(curr, { })}
+                    {/* <Typography variant='h5' component='p' paragraph={true}>
+                    </Typography> */}
+                    <Typography variant='body2' component='p' paragraph={true} sx={{ marginTop: '0.5em' }}>
                         {/* <b>{Math.abs(curr.comparedToNow || 0).toFixed(0)}%</b> {(curr.forecast || curr.instForecast) > (now.forecast || now.instForecast) ? 'higher than' : 'lower than'} now:<br/>{showIndex(now, { })} */}
                         {currIsBest ? 
-                            <><b>Lowest CO2 emissions in the {explainRunWhen(req.when)} in {forecast.postcode}</b></> : null
-                        }
-                        {currIsBestOverall && !currIsBest ? 
-                            <><b>Lowest CO2 emissions in the {explainRunWhen(RunWhenRange.Whenever)} in {forecast.postcode}</b></> : null
-                        }
+                            <><b>Lowest CO2 emissions in the {explainRunWhen(req.when)} in {forecast.postcode}</b></>
+                        : currIsBestOverall && !currIsBest ? 
+                            <><b>Lowest CO2 emissions in the {explainRunWhen(RunWhenRange.Whenever)} in {forecast.postcode}</b></> 
+                        : !currIsBest && !currIsBestOverall ? 
+                            <><span style={{ color: 'rgba(255,255,255,0)' }}>nothing to say</span></> 
+                        : null}
+
                     </Typography>
+                    <Grid container spacing={0} columns={10}>
+                        <Grid item xs={2}><Button size='small' variant='text' disabled={!prevAvail} onClick={() => prev()} sx={{ height: '100%' }}><ArrowBack /></Button></Grid>
+                        <Grid item xs={2}><Button size='small' variant={curr.from===now.from ? 'contained' : 'text'} onClick={() => setCurr(now)} sx={{ height: '100%' }}>Now</Button></Grid>
+                        <Grid item xs={2}><Button size='small' variant={curr.from===best?.from ? 'contained' : 'text'} onClick={() => setCurr(best)} sx={{ height: '100%' }}>Better</Button></Grid>
+                        <Grid item xs={2}><Button size='small' variant={curr.from===bestOverall?.from ? 'contained' : 'text'} onClick={() => setCurr(bestOverall)} sx={{ height: '100%' }}>Best</Button></Grid>
+                        <Grid item xs={2}><Button size='small' variant='text' disabled={!nextAvail} onClick={() => next()} sx={{ height: '100%' }}><ArrowForward /></Button></Grid>
+                    </Grid>
                 </>
             ) : (
                 <Typography variant='body1'>
@@ -204,9 +217,8 @@ export function ForecastDisplay({ req, forecast, loading } : {
 
             {overalBetter() && bestOverall && now ? (
                 <Alert severity='success' sx={{ marginTop: '1em', maxWidth: '60em', marginLeft: 'auto', marginRight: 'auto' }}>
-                    Save <b>{percentBetter(bestOverall, now).toFixed(0)}%</b> if you wait 
-                    {` `}until <b>{format(bestOverall.from, 'EEEE HH:mm')}</b> when the estimated 
-                    carbon intensity drops to {showIndex(bestOverall, { })}
+                    Save <b>{percentBetter(bestOverall, now).toFixed(0)}%</b> if you can wait 
+                    {` `}until <Link onClick={() => setCurr(bestOverall)}><b>{format(bestOverall.from, 'EEEE HH:mm')}</b></Link>
                 </Alert>
             ) : null}
 
