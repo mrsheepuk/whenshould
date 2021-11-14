@@ -7,10 +7,12 @@ const NO_FORECAST = 999999
 
 export type Forecasts = {[key in RunWhenRange]: (PossibleTime | null)}
 
-export function analyseForecast(req: RunWhatRequest, forecast: Forecast): { 
+export interface ForecastAnalysis {
     forecasts: Forecasts,
-    all: PossibleTime[] 
-} {
+    all: PossibleTime[]
+}
+
+export function analyseForecast(req: RunWhatRequest, forecast: Forecast): ForecastAnalysis {
     const date = req.startTime || new Date()
     const forecasts: Forecasts = {
         [RunWhenRange.Now]: null,
