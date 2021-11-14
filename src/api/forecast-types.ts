@@ -37,10 +37,18 @@ export class PossibleTime {
   instGenMix: GenSource[]
   inRange: number
 
-  to?: Date
-  forecast?: number
-  genMix?: GenSource[]
-  index?: ForecastIndex
+  to: Date
+  forecast: number
+  /**
+   * The weighted forecast is the forecast discounted by the further into the 
+   * future it is, this accounts for the lower confidence and lower convenience
+   * of waiting further into the future.
+   */
+  weightedForecast: number
+  genMix: GenSource[]
+  index: ForecastIndex
   totalCarbon?: number
   comparedToNow?: number
+  comparedToBest?: number
+  band?: 'best'|'ok'|'notbad'|'avoid'
 }
