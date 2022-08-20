@@ -5,11 +5,11 @@ import { createTheme } from '@mui/material/styles';
 
 import './App.css';
 import Logo from './leaf.svg';
-import { Forecast } from './api/forecast-types';
-import { Forecaster } from './api/forecaster';
+import { Forecast } from './lib/forecast-types';
+import { getForecast } from './lib/api';
 import { RunWhatForm } from './components/RunWhatForm';
 import { ForecastDisplay } from './components/ForecastDisplay';
-import { RunWhatRequest } from './api/request-types';
+import { RunWhatRequest } from './lib/request-types';
 import { HowWorksDialog } from './components/HowWorksDialog';
 import { WhyDialog } from './components/WhyDialog';
 import { VERSION } from './version';
@@ -68,7 +68,7 @@ function App() {
       });
     }
 
-    const f = await new Forecaster().getForecast(req.where, req.startTime)
+    const f = await getForecast(req.where, req.startTime)
     if (f.ok) {
       setForecast(f.forecast)
     } else {
@@ -134,13 +134,23 @@ function App() {
                 <Grid item xs={12}>
                   <ForecastDisplay req={req} forecast={forecast} loading={loading} />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid item xs={6}>
                 {!loading ? (
                   <Button 
                       sx={{ width: '100%' }} 
                       variant='contained' 
                       onClick={() => setEdit(true)}>
                     Start again
+                  </Button>
+                ) : null}
+                </Grid>
+                <Grid item xs={6}>
+                {!loading ? (
+                  <Button 
+                      sx={{ width: '100%' }} 
+                      variant='contained' 
+                      onClick={() => load(req)}>
+                    Refresh
                   </Button>
                 ) : null}
                 </Grid>

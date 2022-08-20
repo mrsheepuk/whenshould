@@ -14,6 +14,13 @@ export enum ForecastIndex {
   veryhigh = 'very high'
 }
 
+export enum Band {
+  best = 'best',
+  ok = 'ok',
+  notbad = 'notbad',
+  avoid = 'avoid'
+}
+
 export class TimeForecast {
   from: string
   to: string
@@ -29,14 +36,8 @@ export class GenSource {
   perc: number
 }
 
-export class PossibleTime {
+export class TimeAnalysis {
   from: Date
-  instTo: Date
-  instForecast: number
-  instIndex: ForecastIndex
-  instGenMix: GenSource[]
-  inRange: number
-
   to: Date
   forecast: number
   /**
@@ -45,10 +46,11 @@ export class PossibleTime {
    * of waiting further into the future.
    */
   weightedForecast: number
-  genMix: GenSource[]
+  inRange: number
+  generationmix: GenSource[]
   index: ForecastIndex
+  band?: Band
   totalCarbon?: number
   comparedToNow?: number
   comparedToBest?: number
-  band?: 'best'|'ok'|'notbad'|'avoid'
 }
