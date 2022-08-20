@@ -24,6 +24,8 @@ const theme = createTheme({
 });
 
 
+const LOCAL_STORAGE_LAST_SETTINGS_KEY = "lastsettings"
+
 function App() {
   const [loading, setLoading] = useState<boolean>(false)
   const [req, setReq] = useState<RunWhatRequest | undefined>(undefined)
@@ -33,6 +35,15 @@ function App() {
   const [showInfo, setShowInfo] = useState<'about'|'why'|null>(null)
   const [newVersionAvailable, setNewVersionAvailable] = useState<boolean|string>(false)
   const [nextVersionCheck, setNextVersionCheck] = useState<number>(0)
+
+  useEffect(() => {
+    // On initialisation, load last settings if present 
+    const ls = localStorage.getItem(LOCAL_STORAGE_LAST_SETTINGS_KEY)
+    if (ls) {
+      setReq(JSON.parse(ls) as RunWhatRequest)
+      setEdit(true)
+    }
+  }, [])
 
   useEffect(() => {
     if (new Date().getTime() < nextVersionCheck) {
@@ -57,6 +68,7 @@ function App() {
   const load = async (req: RunWhatRequest) => {
     if (!req.where) return
     setReq(req)
+    localStorage.setItem(LOCAL_STORAGE_LAST_SETTINGS_KEY, JSON.stringify(req))
     setEdit(false)
     setLoading(true)
     setErr(undefined)
@@ -78,6 +90,11 @@ function App() {
   }
 
   const showForm = !req || edit || err
+
+  const reset = () => {
+    localStorage.removeItem(LOCAL_STORAGE_LAST_SETTINGS_KEY)
+    setReq(undefined)
+  }
 
   return (
     <ThemeProvider theme={theme}>
@@ -121,7 +138,7 @@ function App() {
                   <Link component='button' onClick={() => setShowInfo('about')}>Learn more</Link>{` `}|{` `}
                   <Link component='button' onClick={() => setShowInfo('why')}>Why is this important?</Link>
                 </Typography>
-                <RunWhatForm presets={req} onSubmit={(req) => load(req)} disabled={loading} />
+                <RunWhatForm presets={req} onSubmit={(req) => load(req)} disabled={loading} onReset={() => reset()} />
                 {err ? (
                   <Alert severity="error" sx={{ marginTop: '1em', marginBottom: '1em', textAlign: 'left' }}>
                     <AlertTitle>Problem retrieving forecast</AlertTitle>
