@@ -1,25 +1,37 @@
 import React, { useEffect, useState } from 'react';
-import { Autocomplete, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, InputAdornment, Link, MenuItem, TextField, Typography } from '@mui/material';
-import { Box } from '@mui/system';
+import { Autocomplete, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, InputAdornment, Link, MenuItem, TextField, Typography } from '@mui/material';
 
 import { ElectricityUser, ElectricityUsers } from '../data/things';
 import { getRunWhen, RunWhatRequest, RunWhenRange } from '../api/request-types';
 
-export function RunWhatForm({ onSubmit, disabled, presets } : { 
+export function RunWhatForm({ onSubmit, disabled, presets, onReset } : { 
     onSubmit: (req: RunWhatRequest) => Promise<void>, 
+    onReset?: () => void,
     disabled?: boolean,
     presets?: RunWhatRequest
 }) {
-    const [what, setWhat] = useState<ElectricityUser>(presets?.what || ElectricityUsers[0])
-    const [duration, setDuration] = useState<number>(presets?.duration || presets?.what?.duration || 60)
-    const [power, setPower] = useState<number|undefined>(presets?.power || presets?.what?.power || undefined)
-    const [where, setWhere] = useState<string|null>(presets?.where || null)
-    const [when, setWhen] = useState<string>(presets?.when || RunWhenRange.Next24h)
+    const [what, setWhat] = useState<ElectricityUser>(ElectricityUsers[0])
+    const [duration, setDuration] = useState<number>(60)
+    const [durationBlurred, setDurationBlurred] = useState<boolean>(false)
+    const [power, setPower] = useState<number|undefined>(undefined)
+    const [where, setWhere] = useState<string|null>(null)
+    const [when, setWhen] = useState<string>(RunWhenRange.Next24h)
     const [whereErr, setWhereErr] = useState<string|null>(null)
     const [showWattsHelp, setShowWattsHelp] = useState<boolean>(false)
 
     useEffect(() => {
-        if (what && what.duration) {
+        if (!presets) return
+        if (presets.where) setWhere(presets.where)
+        if (presets.when) setWhen(presets.when)
+        if (presets.duration) {
+            setDuration(presets.duration)
+            setDurationBlurred(true)
+        }
+        if (presets.what) setWhat(presets.what)
+    }, [presets])
+
+    useEffect(() => {
+        if (what && what.duration && !durationBlurred) {
             setDuration(what.duration)
         }
         if (what && what.power) {
@@ -27,6 +39,7 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
         } else {
             setPower(undefined)
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [what])
 
     const whereValid = (w: string|null): boolean => {
@@ -38,9 +51,9 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
         // If a valid match for a postcode prefix, return JUST the prefix,
         // else return the whole user input. This will then be validated.
         if (match && match.length === 1) {
-            return match[0]
+            return match[0].toUpperCase()
         }
-        return w
+        return w.toUpperCase()
     }
     const checkSetWhere = (w: string|null) => {
         w = removePostcodeSuffix(w)
@@ -73,6 +86,17 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
             duration,
             power,
         })
+    }
+    const reset = () => {
+        setWhat(ElectricityUsers[0])
+        setDuration(60)
+        setDurationBlurred(false)
+        setPower(undefined)
+        setWhere(null)
+        setWhen(RunWhenRange.Next24h)
+        setWhereErr(null)
+        setShowWattsHelp(false)
+        if (onReset) onReset()
     }
 
     return (
@@ -115,7 +139,10 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                         isOptionEqualToValue={(a, b) => a.id === b.id}
                         multiple={false}
                         options={ElectricityUsers}
-                        onChange={(_,w) => setWhat(w)}
+                        onChange={(_,w) => {
+                            setDurationBlurred(false)
+                            setWhat(w)
+                        }}
                         value={what} 
                         renderInput={(params) => 
                             <TextField {...params} 
@@ -131,7 +158,10 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                         disabled={disabled}
                         value={duration}
                         type='number'
-                        onChange={(e) => setDuration(e.target.value as unknown as number)}
+                        onChange={(e) => {
+                            setDuration(e.target.value as unknown as number)
+                            setDurationBlurred(true)
+                        }}
                         onKeyPress={(e) => e.key === 'Enter' && doSubmit()}
                         InputProps={{
                             endAdornment: <InputAdornment position='end'>mins</InputAdornment>
@@ -181,7 +211,7 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                         </MenuItem>
                     </TextField>
                 </Grid>
-                <Grid item md={3} xs={8}>
+                <Grid item md={4} xs={8}>
                     <TextField fullWidth
                         label='Where?'
                         disabled={disabled}
@@ -196,13 +226,23 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
                         required={true}
                     />
                 </Grid>
-                <Grid item md={1} xs={8}>
+                <Grid item md={7} xs={6}>
                     <Button 
                         sx={{ marginTop: '0.5em', width: '100%' }} 
                         variant='contained' 
                         disabled={disabled || !whereValid(where)} 
                         onClick={() => doSubmit()}>
                         Go
+                    </Button>
+                </Grid>
+                <Grid item md={1} xs={2}>
+                    <Button 
+                        color='error'
+                        type='reset'
+                        sx={{ marginTop: '0.5em', width: '100%' }} 
+                        variant='contained' 
+                        onClick={() => reset()}>
+                        Reset
                     </Button>
                 </Grid>
             </Grid>
