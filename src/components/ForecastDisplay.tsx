@@ -1,23 +1,38 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { Alert, Button, ButtonGroup, LinearProgress, Typography, Tooltip as MUITooltip, Paper, Link, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableRow, TableCell, TableBody } from '@mui/material';
-import { InfoOutlined } from '@mui/icons-material';
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Alert, Button, ButtonGroup, LinearProgress, Typography, Tooltip as MUITooltip, Paper, Link, Dialog, DialogContent, DialogActions, Table, TableRow, TableCell, TableBody, Grid } from '@mui/material';
+import { ArrowBack, ArrowForward, ArrowLeft, ArrowRight, Forward30, Replay30, SkipNext, SkipPrevious } from '@mui/icons-material';
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { Box } from '@mui/system';
 import { upperFirst } from 'lodash';
-import { Forecast, ForecastIndex, PossibleTime } from '../api/forecast-types';
-import { explainRunWhen, getRunWhenHours, RunWhatRequest, RunWhenRange } from '../api/request-types';
-import { analyseForecast } from '../api/forecast-analyser';
+
+import { Forecast, TimeAnalysis } from '../lib/forecast-types';
+import { explainRunWhen, getRunWhenHours, RunWhatRequest, RunWhenRange } from '../lib/request-types';
+import { analyseForecast, ForecastAnalysis } from '../lib/forecast-analyser';
+import { getIntensityFill } from './utils';
+import { TimeInfo } from './TimeInfo';
 
 export function ForecastDisplay({ req, forecast, loading } : { 
     req?: RunWhatRequest, 
     forecast?: Forecast, 
     loading: boolean,
 }) {
-    const [showTotalCarbon, setShowTotalCarbon] = useState<boolean>(false)
+    const [showTotalCarbon, setShowTotalCarbon] = useState<boolean>(false) //req?.power !== undefined)
     const [graphRange, setGraphRange] = useState<RunWhenRange>(RunWhenRange.Whenever)
     const [showForecastVisible, setShowForecastVisible] = useState<boolean>(false)
-    const [showForecastMix, setShowForecastMix] = useState<{pt: PossibleTime, inst: boolean}|null>(null)
+    const [showForecastMix, setShowForecastMix] = useState<{pt: TimeAnalysis, inst: boolean}|null>(null)
+    const [forecastAnalysis, setForecastAnalysis] = useState<ForecastAnalysis|null>(null)
+    const [curr, setCurr] = useState<TimeAnalysis|null>(null)
+
+    useEffect(() => {
+        if (!forecast || !req) {
+            setForecastAnalysis(null)
+            return
+        }
+        const fa = analyseForecast(req, forecast)
+        setForecastAnalysis(fa)
+        setCurr(fa.forecasts[req.when])
+    }, [req, forecast])
 
     if (loading) {
         return (
@@ -26,24 +41,61 @@ export function ForecastDisplay({ req, forecast, loading } : {
                 <Typography variant='caption' paragraph={true} sx={{ marginTop: '2em', fontSize: '1em' }}>Asking the National Grid elves how windy it is... and how many dinosaurs they're burning!</Typography>
             </>
         )
-
     }
 
-    if (!forecast || !req) return null
+    if (!forecast || !req || !forecastAnalysis) return null
 
-    const { forecasts, all } = analyseForecast(req, forecast)
+    const { forecasts, all, bands } = forecastAnalysis
 
+    const now = forecasts[RunWhenRange.Now]
     const best = forecasts[req.when]
     const bestOverall = forecasts[RunWhenRange.Whenever]
-    const now = forecasts[RunWhenRange.Now]
-    const graphDataKey = req.power && showTotalCarbon ? 'totalCarbon' : 'instForecast'
-    const intensityKey = req.power && showTotalCarbon ? 'index' : 'instIndex'
+    const bestIsNow = now === best
+    const currIsBest = curr === best
+    const currIsBestOverall = curr === bestOverall
+
+    const currInd = curr ? all.findIndex((pt) => pt.from === curr.from) : -1
+    const currBand = curr ? bands.find((b) => b.from <= curr.from && b.to > curr.from) : null
+    const prevAvail = currInd > 0
+    const nextAvail = currInd < (all.length - 1)
+    const graphDataKey = req.power && showTotalCarbon ? 'totalCarbon' : 'forecast'
     const runWhenHrs = getRunWhenHours(req.when)
     const graphHrs = getRunWhenHours(graphRange)
 
-    const showMix = (pt: PossibleTime, inst?: boolean) => {
+    const showMix = (pt: TimeAnalysis, inst?: boolean) => {
         setShowForecastMix({ pt, inst: inst === true })
         setShowForecastVisible(true)
+    }
+    const next = () => {
+        if (!nextAvail) return
+        setCurr(all[currInd + 1])
+    }
+    const nextBand = () => {
+        if (!nextAvail) return
+        const currBand = curr && curr.band
+        // find next entry that has a different band
+        for (let x = currInd + 1; x < all.length; x++) {
+            if (all[x].band !== currBand) {
+                setCurr(all[x])
+                return
+            }
+        }
+    }
+    const prev = () => {
+        if (!prevAvail) return
+        setCurr(all[currInd - 1])
+    }
+    const prevBand = () => {
+        if (!prevAvail) return
+        const currBand = curr && curr.band
+        // find next entry that has a different band
+        for (let x = currInd - 1; x > -1; x--) {
+            if (all[x].band !== currBand) {
+                setCurr(all[x])
+                return
+            }
+        }
+        setCurr(all[0])
     }
 
     const overalBetter = () => {
@@ -52,68 +104,40 @@ export function ForecastDisplay({ req, forecast, loading } : {
             percentBetter(bestOverall, best) > 10
     }
 
-    const percentBetter = (a: PossibleTime, b: PossibleTime) => {
-        return 100 - (((a?.forecast || 1) / (b?.forecast || 1)) * 100)
+    const percentBetter = (a: TimeAnalysis, b: TimeAnalysis) => {
+        return 100 - ((a.forecast / b.forecast) * 100)
     }
 
-    const showIndex = (fc: PossibleTime, inst?: boolean, disableFM?: boolean) => {
-        const ind = (inst ? fc.instIndex : fc.index) as ForecastIndex
-        const fcast = (inst ? fc.instForecast : fc.forecast) as number
-        if (ind === undefined || fcast === undefined) {
-            return null
-        }
-        return <>
-            <span style={{ whiteSpace: 'nowrap', display: 'inline-block' }}><span style={{ 
-                    border: '1px solid #999',
-                    borderRight: '0',
-                    display: 'inline-block',
-                    padding: '0 0.5em',
-                    backgroundColor: getIntensityFill(fc, inst ? 'instIndex' : 'index'),
-                    color: getIntensityForeground(fc, inst ? 'instIndex' : 'index')
-                }}>{upperFirst(ind)}</span><span style={{ 
-                    border: '1px solid #999',
-                    borderLeft: '0',
-                    display: 'inline-block', 
-                    padding: '0 0.3em 0 0.5em' 
-                }}>
-                    {!disableFM ? (
-                        <Link underline='none' sx={{ cursor: 'pointer' }} color='#000' onClick={() => showMix(fc, inst===true)}>{fcast.toFixed(0)}g/kWh <InfoOutlined sx={{ paddingTop: '0.25em' }} fontSize='inherit' /></Link> 
-                    ) : (
-                        <>{fcast.toFixed(0)}g/kWh</>
-                    )}
-                </span></span>
-        </>
-    }
-
-    const fcMix = showForecastMix?.inst ? showForecastMix.pt.instGenMix : showForecastMix?.pt?.genMix
+    const graphData = all.filter((v) => v.inRange <= graphHrs)
 
     return (
         <>
             <Dialog open={showForecastVisible} onClose={() => setShowForecastVisible(false)}>
-                <DialogTitle>Power generation mix</DialogTitle>
-                <DialogContent>
-                    {showForecastMix ? (
-                        <>
-                            <Typography variant='body2' paragraph={true} sx={{ textAlign: 'center' }}>
-                                {showIndex(showForecastMix.pt, false, true)}
-                            </Typography>
-                            <Typography variant='body2' paragraph={true}>
-                                Estimated mix of power generation sources for {forecast.postcode} from {format(showForecastMix?.pt.from || new Date(), 'EEEE HH:mm')}
-                                {!showForecastMix?.inst ? <> for a {req.duration}min duration</> : <></>}:
-                            </Typography>
-                            <Table size='small'>
-                                <TableBody>
-                                    {fcMix?.filter((s) => s.perc > 0.1).sort((a, b) => b.perc - a.perc).map((s, i) => 
-                                        <TableRow key={i}>
-                                            <TableCell>{upperFirst(s.fuel)}</TableCell>
-                                            <TableCell>{s.perc.toFixed(1)}%</TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </>
-                    ) : null }
-                </DialogContent>
+                {showForecastMix ? (<>
+                    <DialogContent>
+                        {showForecastMix ? (
+                            <>
+                                <Typography variant='body2' paragraph={true}>
+                                    {!showForecastMix?.inst ? <>Average impact to run {req.what.singular} for {req.duration} minutes <b>starting at</b></> : <>Details at</>}
+                                    {` `}<b>{format(showForecastMix.pt.from, 'EEE HH:mm')}</b> in {forecast.postcode}:
+                                </Typography>
+                                <Typography variant='body2' paragraph={true} sx={{ textAlign: 'center' }}>
+                                    <TimeInfo req={req} fc={showForecastMix.pt} now={now || undefined} hideTime={true} />
+                                </Typography>
+                                <Table size='small'>
+                                    <TableBody>
+                                        {showForecastMix?.pt?.generationmix?.filter((s) => s.perc > 0.1).sort((a, b) => b.perc - a.perc).map((s, i) => 
+                                            <TableRow key={i}>
+                                                <TableCell>{upperFirst(s.fuel)}</TableCell>
+                                                <TableCell>{s.perc.toFixed(1)}%</TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </>
+                        ) : null }
+                    </DialogContent>
+                </>) : null}
                 <DialogActions>
                     <Button autoFocus onClick={() => setShowForecastVisible(false)}>
                         OK
@@ -121,19 +145,31 @@ export function ForecastDisplay({ req, forecast, loading } : {
                 </DialogActions>
             </Dialog>
 
-            {best && now ? (
+            {curr && now && best && bestOverall ? (
                 <>
                     <Typography variant='body1' component='p' paragraph={true}>
                         Start {req.what.owned} at
-                    </Typography>    
-                    <Typography variant='h5' component='p' paragraph={true}>
-                        <b>{format(best.from, 'EEEE HH:mm')}</b><br/>
-                        {showIndex(best)}
-                    </Typography>    
-                    <Typography variant='body2' component='p'>
-                        for the lowest CO2 emissions {best.totalCarbon ? <>(total: <MUITooltip title={<>Total estimated CO2 to run {req.what.owned} for {req.duration} minutes</>}><b>{best.totalCarbon.toFixed(0)}g</b></MUITooltip>)</> : null}
-                        {` `}in the {explainRunWhen(req.when)}, saving 
-                        {` `}<b>{best.comparedToNow?.toFixed(0)}%</b> compared to now: {showIndex(now)}
+                    </Typography>
+                    <TimeInfo req={req} now={now} fc={curr} onClick={showMix} />
+                    <Grid container spacing={0} columns={12} sx={{ marginTop: '0.5em' }}>
+                        <Grid item xs={2}><Button size='small' variant={curr.from===now.from ? 'contained' : 'text'} onClick={() => setCurr(now)} sx={{ height: '100%' }}>Now</Button></Grid>
+                        <Grid item xs={2}><Button size='small' variant='text' disabled={!prevAvail} onClick={() => prevBand()} sx={{ height: '100%' }}><SkipPrevious /></Button></Grid>
+                        <Grid item xs={2}><Button size='small' variant='text' disabled={!prevAvail} onClick={() => prev()} sx={{ height: '100%' }}><Replay30 /></Button></Grid>
+                        {/* <Grid item xs={2}><Button size='small' variant={curr.from===best?.from ? 'contained' : 'text'} onClick={() => setCurr(best)} sx={{ height: '100%' }}>Better</Button></Grid>  */}
+                        <Grid item xs={2}><Button size='small' variant={curr.from===bestOverall?.from ? 'contained' : 'text'} onClick={() => setCurr(bestOverall)} sx={{ height: '100%' }}>Best</Button></Grid>
+                        <Grid item xs={2}><Button size='small' variant='text' disabled={!nextAvail} onClick={() => next()} sx={{ height: '100%' }}><Forward30 /></Button></Grid>
+                        <Grid item xs={2}><Button size='small' variant='text' disabled={!nextAvail} onClick={() => nextBand()} sx={{ height: '100%' }}><SkipNext /></Button></Grid>
+                    </Grid>
+                    <Typography variant='body2' component='p' paragraph={true} sx={{ marginTop: '0.5em' }}>
+                        {currIsBest ? 
+                            <><b>Lowest CO2 emissions in the {explainRunWhen(req.when)} in {forecast.postcode}</b></>
+                        : currIsBestOverall && !currIsBest ? 
+                            <><b>Lowest CO2 emissions in the {explainRunWhen(RunWhenRange.Whenever)} in {forecast.postcode}</b></> 
+                        : !currIsBest && !currIsBestOverall && currBand ? 
+                            <>From {format(currBand.from, 'EEE HH:mm')} to {format(currBand.to, 'HH:mm')} averages {currBand.forecast.toFixed(0)}g/kWh ({currBand.index})</>
+                        : !currIsBest && !currIsBestOverall ?
+                            <><span style={{ color: 'rgba(255,255,255,0)' }}>nothing to say</span></> 
+                        : null}
                     </Typography>
                 </>
             ) : (
@@ -144,20 +180,27 @@ export function ForecastDisplay({ req, forecast, loading } : {
 
             {overalBetter() && bestOverall && now ? (
                 <Alert severity='success' sx={{ marginTop: '1em', maxWidth: '60em', marginLeft: 'auto', marginRight: 'auto' }}>
-                    Save <b>{percentBetter(bestOverall, now).toFixed(0)}%</b> if you wait 
-                    {` `}until <b>{format(bestOverall.from, 'EEEE HH:mm')}</b> when the estimated 
-                    carbon intensity drops to {showIndex(bestOverall)} {bestOverall.totalCarbon ? <> total: <b>{bestOverall.totalCarbon.toFixed(0)}g</b></> : null}
+                    Save <b>{percentBetter(bestOverall, now).toFixed(0)}%</b> if you can wait 
+                    {` `}until <Link onClick={() => setCurr(bestOverall)}><b>{format(bestOverall.from, 'EEEE HH:mm')}</b></Link>
                 </Alert>
             ) : null}
+
+            {/* <pre>{JSON.stringify(bands.map((b) => { return { from: b.from, to: b.to, forecast: b.forecast, band: b.band, total: b.totalCarbon, gen: b.generationmix } }), null, 2)}</pre> */}
 
             <Paper elevation={1} sx={{ marginTop: '1em', padding: '0.5em' }}>
                 <Box sx={{ height: '25vh' }}>
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={all.filter((v) => v.inRange <= graphHrs)} barGap={0} barCategoryGap={-0.5}>
-                            <Bar type="monotone" dataKey={graphDataKey} strokeWidth={0}>
-                                {all.map((entry, i) => (
-                                    <Cell key={i} fill={getIntensityFill(entry, intensityKey)} opacity={entry.inRange <= runWhenHrs ? 1 : 1} strokeWidth={0} />
-                                ))}
+                        <BarChart data={graphData} barGap={0} barCategoryGap={-0.5}>
+                            <Bar type="monotone" dataKey={graphDataKey} strokeWidth={0} onClick={(d) => setCurr(d)}>
+                                {graphData.map((entry, i) => 
+                                    <Cell
+                                        key={i} 
+                                        fill={i === currInd ? 'yellow' : getIntensityFill(entry)} 
+                                        opacity={entry.inRange <= runWhenHrs ? 1 : 1} 
+                                        strokeWidth={i === currInd ? 0 : 0} 
+                                        stroke='black'
+                                    />
+                                )}
                             </Bar>
                             <CartesianGrid stroke="#ccc" strokeDasharray="2 5" />
                             <XAxis dataKey="from" 
@@ -166,17 +209,6 @@ export function ForecastDisplay({ req, forecast, loading } : {
                                 interval={'preserveStart'} 
                             />
                             <YAxis unit='g' />
-                            <Tooltip
-                                labelFormatter={(t) => format(t, 'EEEE HH:mm')}
-                                formatter={(forecast: number, name: string, { payload } : { payload: PossibleTime }) => [
-                                    <>
-                                        {showIndex(payload, intensityKey === 'instIndex', true)} {payload.totalCarbon ?
-                                            <><br/>{payload.totalCarbon.toFixed(0)}g total to run<br/>{req.what.singular} for {req.duration} minutes<br/><b>starting</b> at this time</> :
-                                            null
-                                        }
-                                    </>
-                                ]} 
-                            />
                         </BarChart>
                     </ResponsiveContainer>
                 </Box>
@@ -204,36 +236,3 @@ export function ForecastDisplay({ req, forecast, loading } : {
     )
 }
 
-const getIntensityFill = (entry: PossibleTime, intensityKey: keyof PossibleTime) => {
-    switch (entry[intensityKey]) {
-        case ForecastIndex.verylow:
-            return '#89C35C'
-        case ForecastIndex.low:
-            return '#3EA055'
-        case ForecastIndex.moderate:
-            return '#E8A317'
-        case ForecastIndex.high:
-            return '#E42217'
-        case ForecastIndex.veryhigh:
-            return '#800000'
-    }
-    // ???
-    return 'blue'
-}
-
-const getIntensityForeground = (entry: PossibleTime, intensityKey: keyof PossibleTime) => {
-    switch (entry[intensityKey]) {
-        case ForecastIndex.verylow:
-            return 'white'
-        case ForecastIndex.low:
-            return 'white'
-        case ForecastIndex.moderate:
-            return 'white'
-        case ForecastIndex.high:
-            return 'yellow'
-        case ForecastIndex.veryhigh:
-            return 'yellow'
-    }
-    // ???
-    return 'blue'
-}

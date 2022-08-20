@@ -3,7 +3,7 @@ import { Autocomplete, Button, Dialog, DialogActions, DialogContent, DialogTitle
 import { Box } from '@mui/system';
 
 import { ElectricityUser, ElectricityUsers } from '../data/things';
-import { getRunWhen, RunWhatRequest, RunWhenRange } from '../api/request-types';
+import { getRunWhen, RunWhatRequest, RunWhenRange } from '../lib/request-types';
 
 export function RunWhatForm({ onSubmit, disabled, presets } : { 
     onSubmit: (req: RunWhatRequest) => Promise<void>, 
@@ -64,9 +64,9 @@ export function RunWhatForm({ onSubmit, disabled, presets } : {
     }
 
     const doSubmit = async () => {
-        if (!whereValid(where)) return
+        if (where === null || !whereValid(where)) return
         await onSubmit({
-            startTime: null,
+            startTime: new Date(),
             what, 
             where, 
             when: getRunWhen(when), 

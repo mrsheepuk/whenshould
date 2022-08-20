@@ -14,6 +14,13 @@ export enum ForecastIndex {
   veryhigh = 'very high'
 }
 
+export enum Band {
+  best = 'best',
+  ok = 'ok',
+  notbad = 'notbad',
+  avoid = 'avoid'
+}
+
 export class TimeForecast {
   from: string
   to: string
@@ -29,18 +36,21 @@ export class GenSource {
   perc: number
 }
 
-export class PossibleTime {
+export class TimeAnalysis {
   from: Date
-  instTo: Date
-  instForecast: number
-  instIndex: ForecastIndex
-  instGenMix: GenSource[]
+  to: Date
+  forecast: number
+  /**
+   * The weighted forecast is the forecast discounted by the further into the 
+   * future it is, this accounts for the lower confidence and lower convenience
+   * of waiting further into the future.
+   */
+  weightedForecast: number
   inRange: number
-
-  to?: Date
-  forecast?: number
-  genMix?: GenSource[]
-  index?: ForecastIndex
+  generationmix: GenSource[]
+  index: ForecastIndex
+  band?: Band
   totalCarbon?: number
   comparedToNow?: number
+  comparedToBest?: number
 }
